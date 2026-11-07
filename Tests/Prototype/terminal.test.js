@@ -7,7 +7,12 @@ const vm = require('node:vm');
 
 function prototype() {
   const html = fs.readFileSync(path.join(__dirname, '../../docs/prototype/skerry-gui.html'), 'utf8');
-  const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const open = html.indexOf('<script>');
+  assert.notEqual(open, -1, 'the prototype has no opening <script> tag');
+  const start = open + '<script>'.length;
+  const end = html.indexOf('</script>', start);
+  assert.notEqual(end, -1, 'the prototype has no closing </script> tag');
+  const script = html.slice(start, end);
   const elements = new Map();
   const listeners = {};
   const document = {
