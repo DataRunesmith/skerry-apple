@@ -7,7 +7,8 @@ const vm = require('node:vm');
 
 function prototype() {
   const html = fs.readFileSync(path.join(__dirname, '../../docs/prototype/skerry-gui.html'), 'utf8');
-  const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const start = html.indexOf('<script>') + '<script>'.length;
+  const script = html.slice(start, html.indexOf('</script>', start));
   const elements = new Map();
   const listeners = {};
   const document = {
