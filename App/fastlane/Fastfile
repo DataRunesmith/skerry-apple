@@ -1,0 +1,161 @@
+default_platform(:ios)
+
+# Beteendeneutral CodeQL-trigger: håll Ruby i PR-diffen så default setup producerar ruby-konfigurationen som main-rulesetet kräver.
+
+# TestFlight-uppladdning. Körs manuellt (workflow_dispatch, se
+# .github/workflows/testflight.yml) — inte på varje push, eftersom varje
+# körning konsumerar ett byggnummer hos Apple.
+#
+# Signering via `match` (readonly), INTE `-allowProvisioningUpdates` längre
+# — den senare visade sig tyst ALDRIG skapa ett distributionscertifikat på en
+# engångs-CI-runner (bara utvecklingscertifikat), oavsett hur många gånger
+# den kördes. Certifikat/profil är istället skapade EN gång (manuellt, på en Mac — `security`/Keychain-operationer kräver en
+# inloggad GUI-session, fungerar inte över ren SSH) och sparade krypterat
+# i match-repot som `MATCH_GIT_URL` pekar på (`MATCH_PASSWORD`-skyddat).
+# CI hämtar bara — skapar aldrig nya, för att inte krocka med Apples gräns
+# på antal distributionscertifikat (redan träffad en gång under felsökningen).
+platform :ios do
+  desc "Bygg och ladda upp till TestFlight"
+  lane :beta do
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("APP_STORE_CONNECT_KEY_ID"),
+      issuer_id: ENV.fetch("APP_STORE_CONNECT_ISSUER_ID"),
+      key_content: ENV.fetch("APP_STORE_CONNECT_KEY_CONTENT"),
+      is_key_content_base64: true,
+      in_house: false,
+    )
+
+    # Nästa lediga byggnummer hos Apple, inte bara +1 på det som råkar stå i
+    # projektfilen — annars kolliderar en lokal CURRENT_PROJECT_VERSION lätt
+    # med ett nummer som redan laddats upp av en tidigare körning.
+    latest = latest_testflight_build_number(
+      api_key: api_key,
+      app_identifier: "com.datarunesmith.skerry",
+      # Utan den här: om ingen build finns än (första körningen) returnerar
+      # fastlane 1 som default, och latest + 1 gör den FÖRSTA TestFlight-
+      # buildens nummer 2 istället för 1.
+      initial_build_number: 0,
+    )
+    increment_build_number(
+      build_number: latest + 1,
+      xcodeproj: "Skerry.xcodeproj",
+    )
+
+    # Skapar en TILLFÄLLIG Keychain och pekar match mot den — utan den
+    # här kan CI-runnern råka ut för samma Keychain-krångel som
+    # bootstrap-körningen gjorde på den hyrda Mac:en.
+    # `provider:` behövs inte för GitHub Actions — auto-detekteras via
+    # GITHUB_ACTIONS-miljövariabeln.
+    setup_ci if ENV["CI"]
+
+    match(
+      api_key: api_key,
+      type: "appstore",
+      app_identifier: "com.datarunesmith.skerry",
+      team_id: ENV.fetch("APP_STORE_CONNECT_TEAM_ID"),
+      git_url: ENV.fetch("MATCH_GIT_URL"),
+      readonly: true,
+    )
+
+    build_app(
+      project: "Skerry.xcodeproj",
+      scheme: "Skerry",
+      export_method: "app-store",
+      # Samma skäl som i .github/workflows/xcode.yml: SwiftTerm v1.19.0
+      # införde ett build-plugin, och Xcode vägrar köra ett ovaliderat
+      # sådant utan en förtroendefråga som inte går att besvara i CI.
+      # build_app anropar xcodebuild under huven, så flaggan måste med här
+      # också — annars faller TestFlight-bygget på exakt samma sätt.
+      xcargs: "-skipPackagePluginValidation",
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true,
+    )
+  end
+end
+
+# tvOS-motsvarigheten till :ios-lanen ovan — samma mönster (match readonly,
+# nästa lediga byggnummer, upload_to_testflight), bara riktat mot
+# Skerry-tvOS-targeten och dess EGNA bundle-ID (com.datarunesmith.skerry.tv, ett
+# separat App Store Connect-app-record från iOS-appen).
+#
+# resten av App/ — Xcode-only, kräver riktiga secrets). EN sak krävs
+# fortfarande INNAN denna lane kan lyckas, inte görbart härifrån:
+#   Ett App Store Connect-app-record för com.datarunesmith.skerry.tv måste finnas
+#   (skapas i App Store Connect-webbportalen — App Store Connect-API:t
+#   tillåter INTE att skapa app-record via `POST /v1/apps` oavsett
+#   API-nyckelns roll). Kräver ett
+#   beslut om SKU/primärt språk — samma manuella steg som iOS-appen redan
+#   gick igenom.
+#
+# Certifikatet är INTE tvOS-specifikt: samma delade "Apple Distribution"-certifikat
+# som iOS-appen används även här. Bara provisioneringsprofilen, "match AppStore
+# com.datarunesmith.skerry.tv", är tvOS-specifik. Skapa inte ett eget
+# tvOS-distributionscertifikat — det krockar med Apples gräns på antal
+# distributionscertifikat per konto.
+platform :tvos do
+  desc "Bygg och ladda upp tvOS-appen till TestFlight"
+  lane :beta do
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("APP_STORE_CONNECT_KEY_ID"),
+      issuer_id: ENV.fetch("APP_STORE_CONNECT_ISSUER_ID"),
+      key_content: ENV.fetch("APP_STORE_CONNECT_KEY_CONTENT"),
+      is_key_content_base64: true,
+      in_house: false,
+    )
+
+    # `platform: "appletvos"` MÅSTE med — com.datarunesmith.skerry.tv är ett separat,
+    # tvOS-app-record, och latest_testflight_build_number defaultar platform
+    # till "ios". Utan detta frågar den efter iOS-builds på ett tvOS-record
+    # (alltid tomt), faller tillbaka på initial_build_number: 0, och varje
+    # körning väljer samma nummer 1 → duplikat-avvisat av Apple.
+    latest = latest_testflight_build_number(
+      api_key: api_key,
+      app_identifier: "com.datarunesmith.skerry.tv",
+      platform: "appletvos",
+      initial_build_number: 0,
+    )
+    # Stock increment_build_number (agvtool) stöder inte `target:` och är
+    # projekt-brett — samma mönster som :ios-lanen ovan. Det spelar ingen roll
+    # att detta rör iOS/macOS-targetens byggnummer i samma .xcodeproj: värdet
+    # är efemärt på CI-runnern (checkas aldrig in) och varje lane hämtar sitt
+    # EGNA nästa TestFlight-nummer per plattform innan bygget.
+    increment_build_number(
+      build_number: latest + 1,
+      xcodeproj: "Skerry.xcodeproj",
+    )
+
+    setup_ci if ENV["CI"]
+
+    match(
+      api_key: api_key,
+      type: "appstore",
+      platform: "tvos",
+      app_identifier: "com.datarunesmith.skerry.tv",
+      team_id: ENV.fetch("APP_STORE_CONNECT_TEAM_ID"),
+      git_url: ENV.fetch("MATCH_GIT_URL"),
+      readonly: true,
+    )
+
+    build_app(
+      project: "Skerry.xcodeproj",
+      scheme: "Skerry-tvOS",
+      export_method: "app-store",
+      # Utan denna kan build_app falla tillbaka på fel destination/SDK för
+      # ett tvOS-schema.
+      destination: "generic/platform=tvOS",
+      # Se :ios-lanen ovan om varför.
+      xcargs: "-skipPackagePluginValidation",
+    )
+
+
+    upload_to_testflight(
+      api_key: api_key,
+      app_identifier: "com.datarunesmith.skerry.tv",
+      app_platform: "appletvos",
+      skip_waiting_for_build_processing: true,
+    )
+  end
+end

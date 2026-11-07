@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Skerry</string>
+	<!-- GENERATE_INFOPLIST_FILE är NO (manuellt underhållen Info.plist),
+	     så Xcode auto-injicerar ALDRIG den här nyckeln — normalt görs det
+	     bara vid GENERATE_INFOPLIST_FILE: YES. Utan den kunde arkivet
+	     byggas men EXPORTEN misslyckades: "Couldn't find platform family
+	     for 'Skerry.app'". -->
+	<key>CFBundleSupportedPlatforms</key>
+	<array>
+		<string>iPhoneOS</string>
+	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Lås upp Skerry med Face ID i stället för att skriva ett lösenord varje gång.</string>
+	<!-- Krypteringsexport-deklaration (Apples App Store Connect frågar annars
+	     interaktivt vid varje uppladdning, eller sätter builden i "Missing
+	     Compliance"-status tills någon svarar manuellt). Skerry använder
+	     endast STANDARDprotokoll/-bibliotek (SwiftNIO SSH, AES-256-GCM via
+	     Apples egen CryptoKit) — ingen egen/proprietär krypteringsalgoritm
+	     — vilket är det klassiska "exempt"-fallet enligt amerikansk export-
+	     lagstiftning (samma mönster som praktiskt taget alla jämförbara
+	     SSH-klienter på App Store). OBS: satt baserat på
+	     allmän kunskap om det vanliga mönstret, INTE en verifierad läsning
+	     av Apples egen livesida (två hämtningsförsök misslyckades med att
+	     faktiskt läsa in sidinnehållet) — värt en snabb manuell koll. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<!-- OAuth-redirect (se OAuthProviders.swift) — samma schema måste
+	     registreras hos varje leverantör som "Redirect URI". -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.datarunesmith.skerry.oauth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.datarunesmith.skerry</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

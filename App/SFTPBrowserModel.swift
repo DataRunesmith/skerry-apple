@@ -1,0 +1,304 @@
+#if canImport(SwiftUI)
+import SwiftUI
+import Foundation
+import SSHCore
+
+/// Håller SFTP-anslutningen och den aktuella katalogvyn — samma
+/// anslutnings-livscykelmönster som `DockerModel` (lazy connect, cachar
+/// pågående anslutningsförsök så samtidiga anrop inte startar varsin
+/// session/kanal).
+@MainActor
+final class SFTPBrowserModel: ObservableObject {
+    @Published var currentPath: String = "."
+    @Published var entries: [SFTPNameEntry] = []
+    @Published var errorMessage: String?
+    @Published var loading = false
+    @Published var editingFile: EditingFile?
+
+    struct EditingFile: Identifiable, Equatable {
+        let path: String
+        var content: String
+        /// Data gick inte att avkoda som UTF8 — spara MÅSTE vara avstängt
+        /// för det här fallet (annars
+        /// skriver "Spara" tyst över det riktiga binära innehållet med en
+        /// platshållarsträng).
+        let isBinary: Bool
+        var id: String { path }
+    }
+
+    private let request: ConnectRequest
+    /// För att slå upp en ev. jump-host, se `resolveConnectionPlan`. `nil`
+    /// på anropsplatser utan delad store — bara en host UTAN jump-host
+    /// ansluter då direkt; en host MED jumpHostID nekas anslutning
+    /// (jump-hosten går inte att lösa upp utan store), se `resolveConnectionPlan`.
+    private let store: HostStore?
+    private let connector = ChainConnector<SFTPClient>(closeClient: { await $0.close() })
+
+    /// Target-sessionen i den aktiva kedjan — samma anropskontrakt som
+    /// tidigare (`ArchiveOperations` m.fl. kör alltid mot target, aldrig
+    /// jump-hoppet).
+    private var session: SSHSession? { connector.target }
+
+    init(request: ConnectRequest, store: HostStore? = nil) {
+        self.request = request
+        self.store = store
+    }
+
+    /// Katalogen visas alltid mapp-först, sedan alfabetiskt inom varje grupp.
+    var sortedEntries: [SFTPNameEntry] {
+        entries.sorted { a, b in
+            if a.attributes.isDirectory != b.attributes.isDirectory {
+                return a.attributes.isDirectory
+            }
+            return a.filename.lowercased() < b.filename.lowercased()
+        }
+    }
+
+    private func ensureClient() async -> SFTPClient? {
+        await connector.ensure(
+            connect: { [request, store] in
+                guard let plan = resolveConnectionPlan(for: request.host, password: request.password, store: store) else {
+                    throw PlainMessageError(message: "Kan inte autentisera värden (eller dess jump-host, om en är vald).")
+                }
+                return try await SSHConnectionChain.connect(
+                    target: request.host.target, targetAuth: plan.auth, jump: plan.jump)
+            },
+            open: { chain in try await SFTPClient.open(on: chain.target) },
+            onFailure: { [weak self] in self?.errorMessage = $0 }
+        )
+    }
+
+    func refresh() async {
+        loading = true
+        defer { loading = false }
+        guard let client = await ensureClient() else { return }
+        do {
+            entries = try await client.listDirectory(currentPath)
+                .filter { $0.filename != "." && $0.filename != ".." }
+            errorMessage = nil
+        } catch {
+            errorMessage = "\(error)"
+        }
+    }
+
+    private func joined(_ name: String) -> String {
+        currentPath == "." ? name : currentPath + "/" + name
+    }
+
+    func open(_ entry: SFTPNameEntry) async {
+        if entry.attributes.isDirectory {
+            currentPath = joined(entry.filename)
+            await refresh()
+            return
+        }
+        guard let client = await ensureClient() else { return }
+        let path = joined(entry.filename)
+        do {
+            let bytes = try await client.readFile(path)
+            if let text = String(bytes: bytes, encoding: .utf8) {
+                editingFile = EditingFile(path: path, content: text, isBinary: false)
+            } else {
+                editingFile = EditingFile(
+                    path: path,
+                    content: "(binärt innehåll, \(bytes.count) bytes — kan inte visas eller redigeras som text)",
+                    isBinary: true)
+            }
+        } catch {
+            errorMessage = "\(error)"
+        }
+    }
+
+    func saveEditingFile() async {
+        guard let file = editingFile, !file.isBinary else { return }
+        guard let client = await ensureClient() else { return }
+        do {
+            try await client.writeFile(file.path, data: Array(file.content.utf8))
+            editingFile = nil
+        } catch {
+            errorMessage = "\(error)"
+        }
+    }
+
+    var canNavigateUp: Bool { currentPath != "." }
+
+    func navigateUp() async {
+        guard canNavigateUp else { return }
+        if let slash = currentPath.lastIndex(of: "/") {
+            currentPath = String(currentPath[currentPath.startIndex..<slash])
+        } else {
+            currentPath = "."
+        }
+        await refresh()
+    }
+
+    func delete(_ entry: SFTPNameEntry) async {
+        guard let client = await ensureClient() else { return }
+        let path = joined(entry.filename)
+        do {
+            if entry.attributes.isDirectory {
+                try await client.rmdir(path)
+            } else {
+                try await client.remove(path)
+            }
+            await refresh()
+        } catch {
+            errorMessage = "\(error)"
+        }
+    }
+
+    func createDirectory(named name: String) async {
+        guard let client = await ensureClient() else { return }
+        do {
+            try await client.mkdir(joined(name))
+            await refresh()
+        } catch {
+            errorMessage = "\(error)"
+        }
+    }
+
+    func rename(_ entry: SFTPNameEntry, to newName: String) async {
+        guard let client = await ensureClient() else { return }
+        do {
+            try await client.rename(joined(entry.filename), to: joined(newName))
+            await refresh()
+        } catch {
+            errorMessage = "\(error)"
+        }
+    }
+
+    /// `mode`: oktal sträng utan `0o`-prefix, t.ex. "644"/"755" — samma
+    /// notation som `chmod` på kommandoraden, vilket är vad användaren
+    /// redan känner till.
+    func chmod(_ entry: SFTPNameEntry, mode: String) async {
+        guard let value = UInt32(mode, radix: 8) else {
+            errorMessage = "Ogiltig behörighet — ange tre oktala siffror, t.ex. 644."
+            return
+        }
+        guard let client = await ensureClient() else { return }
+        do {
+            try await client.setPermissions(joined(entry.filename), mode: value)
+            await refresh()
+        } catch {
+            errorMessage = "\(error)"
+        }
+    }
+
+    /// `uidText`/`gidText`: NUMERISKA ID:n, inte användarnamn — SFTP
+    /// version 3 känner bara till UID/GID, aldrig namn.
+    func chown(_ entry: SFTPNameEntry, uidText: String, gidText: String) async {
+        guard let uid = UInt32(uidText), let gid = UInt32(gidText) else {
+            errorMessage = "Ogiltigt UID/GID — ange numeriska ID:n, t.ex. 1000."
+            return
+        }
+        guard let client = await ensureClient() else { return }
+        do {
+            try await client.chown(joined(entry.filename), uid: uid, gid: gid)
+            await refresh()
+        } catch {
+            errorMessage = "\(error)"
+        }
+    }
+
+    /// Komprimerar EN post (fil eller mapp) till ett nytt arkiv i samma
+    /// katalog. `archiveName` bör sluta på `.tar.gz`/`.zip`.
+    func compress(_ entry: SFTPNameEntry, archiveName: String, useZip: Bool) async {
+        guard let client = await ensureClient(), let session else { return }
+        do {
+            // SFTP:s currentPath och exec-kanalens arbetskatalog delar
+            // typiskt startkatalog men är INTE garanterat samma sak —
+            // realpath slår upp den FAKTISKA absoluta sökvägen.
+            let absoluteDir = try await client.realpath(currentPath)
+            if useZip {
+                try await ArchiveOperations.createZip(
+                    paths: [entry.filename], archiveName: archiveName, in: absoluteDir, over: session)
+            } else {
+                try await ArchiveOperations.createTarGz(
+                    paths: [entry.filename], archiveName: archiveName, in: absoluteDir, over: session)
+            }
+            await refresh()
+        } catch {
+            errorMessage = "\(error)"
+        }
+    }
+
+    /// Packar upp ett arkiv i SAMMA katalog det ligger i. Formatet avgörs
+    /// av filändelsen — okänt format avvisas tydligt istället för att
+    /// gissa fel kommando.
+    func extract(_ entry: SFTPNameEntry) async {
+        guard let client = await ensureClient(), let session else { return }
+        do {
+            let absoluteDir = try await client.realpath(currentPath)
+            if entry.filename.hasSuffix(".tar.gz") || entry.filename.hasSuffix(".tgz") {
+                try await ArchiveOperations.extractTarGz(archiveName: entry.filename, in: absoluteDir, over: session)
+            } else if entry.filename.hasSuffix(".zip") {
+                try await ArchiveOperations.extractZip(archiveName: entry.filename, in: absoluteDir, over: session)
+            } else {
+                errorMessage = "Okänt arkivformat — stödjer .tar.gz/.tgz/.zip."
+                return
+            }
+            await refresh()
+        } catch {
+            // Extraction can fail after some members are written; show them.
+            let extractError = "\(error)"
+            await refresh()
+            errorMessage = extractError
+        }
+    }
+
+    /// Laddar upp en eller flera drag-and-drop:ade lokala filer/mappar till
+    /// den katalog som VISAS just nu (`currentPath`) — anslutningen som
+    /// redan hålls öppen av `ensureClient()` medan man bläddrar återanvänds
+    /// rakt av, ingen ny session öppnas. Mappar laddas upp REKURSIVT.
+    func uploadDropped(_ urls: [URL]) async {
+        errorMessage = nil
+        for url in urls {
+            await uploadOne(url)
+        }
+        let uploadError = errorMessage
+        await refresh()
+        if let uploadError { errorMessage = uploadError }
+    }
+
+    private func uploadOne(_ localURL: URL) async {
+        // macOS App Sandbox ger tillfällig läsbehörighet för drag-and-drop-
+        // ade filer/mappar UTAN egen entitlement (samma undantag som en
+        // NSOpenPanel-vald fil), men bara mellan start/stop-anropen.
+        let accessing = localURL.startAccessingSecurityScopedResource()
+        defer { if accessing { localURL.stopAccessingSecurityScopedResource() } }
+
+        do {
+            let source = try SFTPUploadSource.open(localURL)
+            await upload(source, name: localURL.lastPathComponent, remotePath: joined(localURL.lastPathComponent))
+        } catch {
+            errorMessage = "\(localURL.lastPathComponent): \(error.localizedDescription)"
+        }
+    }
+
+    private func upload(_ source: SFTPUploadSource, name: String, remotePath: String) async {
+        guard let client = await ensureClient() else { return }
+        do {
+            if source.isDirectory {
+                // SFTP v3 has no distinct already-exists status for mkdir.
+                try? await client.mkdir(remotePath)
+                for childName in try source.childNames() {
+                    do {
+                        let child = try source.child(named: childName)
+                        await upload(child, name: childName, remotePath: remotePath + "/" + childName)
+                    } catch {
+                        errorMessage = "\(childName): \(error.localizedDescription)"
+                    }
+                }
+            } else {
+                let data = try source.read()
+                try await client.writeFile(remotePath, data: Array(data))
+            }
+        } catch {
+            errorMessage = "\(name): \(error.localizedDescription)"
+        }
+    }
+
+    func disconnect() {
+        connector.disconnect()
+    }
+}
+#endif

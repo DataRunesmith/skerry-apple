@@ -1,0 +1,2 @@
+app_identifier("com.datarunesmith.skerry")
+team_id(ENV.fetch("APP_STORE_CONNECT_TEAM_ID"))
