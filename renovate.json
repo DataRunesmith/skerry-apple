@@ -1,0 +1,47 @@
+{
+  "extends": [
+    "config:best-practices",
+    "group:allNonMajor",
+    "schedule:weekly"
+  ],
+  "timezone": "Europe/Stockholm",
+  "platformCommit": "enabled",
+  "labels": [
+    "dependencies"
+  ],
+  "packageRules": [
+    {
+      "description": "Automerge non-major updates once all required checks pass",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "pinDigest",
+        "digest",
+        "lockFileMaintenance"
+      ],
+      "automerge": true
+    },
+    {
+      "description": "swift-nio is pinned exactly: newer releases fail to compile on Windows under Swift 6 strict concurrency",
+      "matchPackageNames": [
+        "/apple\\/swift-nio(\\.git)?$/"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Keep swift-nio minor/patch updates out of the shared non-major group so their approval does not block other updates",
+      "matchPackageNames": [
+        "/apple\\/swift-nio(\\.git)?$/"
+      ],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "swift-nio non-major",
+      "groupSlug": "swift-nio-non-major"
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "addLabels": [
+      "security"
+    ]
+  }
+}
