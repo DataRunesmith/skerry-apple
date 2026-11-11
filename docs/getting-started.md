@@ -17,4 +17,10 @@ swift build
 swift test
 ```
 
-`SSHCore` and `skerry-cli` also build on Linux. Set your own bundle identifier and signing team in `App/project.yml` before running the app on a device.
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:781965506a6c17ee4f671bf279864a87ea9409e31c5154f49e909bdd102808e2 -->
+
+`SSHCore` and `skerry-cli` also build on Linux. Before running the iOS app on a device, set your own bundle identifier and signing team in `App/project.yml`. Those changes alone are insufficient: for manual signing, also install a development provisioning profile matching your bundle identifier, team, and device, and set the iOS target’s Debug `PROVISIONING_PROFILE_SPECIFIER` to its name. Alternatively, configure automatic signing (`CODE_SIGN_STYLE: Automatic`), remove the manual provisioning profile specifiers for that target, and let Xcode manage signing with your team. Regenerate the Xcode project after updating `App/project.yml`.
+
+<!-- /coderabbit-ai-generated:v1 -->
