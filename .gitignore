@@ -287,3 +287,7 @@ DerivedData/
 *.xcodeproj/
 xcuserdata/
 fastlane/report.xml
+
+# Built documentation site
+site/
+.venv-docs/
