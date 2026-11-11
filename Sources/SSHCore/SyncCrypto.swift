@@ -40,6 +40,9 @@ public enum SyncCrypto {
 
     public static func seal(_ state: SyncState, passphrase: String,
                             iterations: Int = SyncCrypto.defaultIterations) throws -> Data {
+        guard (minIterations...maxIterations).contains(iterations) else {
+            throw SyncCryptoError.badFormat
+        }
         let salt = randomBytes(saltLength)
         let key = deriveKey(passphrase: passphrase, salt: salt, iterations: iterations)
         let plaintext = try JSONEncoder().encode(state)
