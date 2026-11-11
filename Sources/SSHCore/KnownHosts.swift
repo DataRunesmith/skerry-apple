@@ -23,6 +23,7 @@ public final class KnownHosts {
     private let path: String?
     private let lock = NIOLock()
     private var entries: [String: String]
+    private var storageUnavailable: Bool
 
     public static var defaultPath: String {
         (("~/.skerry/known_hosts") as NSString).expandingTildeInPath
@@ -30,7 +31,9 @@ public final class KnownHosts {
 
     public init(path: String? = KnownHosts.defaultPath) {
         self.path = path
-        self.entries = KnownHosts.loadEntries(path: path)
+        let loaded = KnownHosts.loadEntries(path: path)
+        self.entries = loaded.entries
+        self.storageUnavailable = loaded.failed
     }
 
     private static func hasSafeParentDirectory(_ path: String) -> Bool {
@@ -86,6 +89,7 @@ public final class KnownHosts {
     public func check(host: String, port: Int, keyString: String) -> Verdict {
         let id = "\(host):\(port)"
         return lock.withLock {
+            if storageUnavailable { return .storageFailure }
             if let stored = entries[id] {
                 return stored == keyString ? .trusted : .changed(stored: stored)
             }
