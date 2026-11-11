@@ -46,7 +46,7 @@ jobs:
         run: test -s semgrep.sarif
       - name: Preserve Semgrep SARIF
         id: semgrep_artifact
-        if: ${{ always() && steps.semgrep_scan.outcome == 'success' && hashFiles('semgrep.sarif') != '' }}
+        if: ${{ !cancelled() && steps.semgrep_scan.outcome == 'success' && hashFiles('semgrep.sarif') != '' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sarif-semgrep
