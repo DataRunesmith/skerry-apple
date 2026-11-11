@@ -29,6 +29,38 @@ final class KnownHostsTests: XCTestCase {
                        .changed(stored: "ssh-ed25519 AAAAx"))
     }
 
+
+    func testSymlinkedKnownHostsFailsClosedInsteadOfTrustingExternalFile() throws {
+        let root = NSTemporaryDirectory() + "skerry-kh-link-\(UUID().uuidString)"
+        let directory = root + "/.skerry"
+        let outside = root + "/attacker-controlled"
+        let path = directory + "/known_hosts"
+        defer { try? FileManager.default.removeItem(atPath: root) }
+        try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+        try "srv:22 ssh-ed25519 AAAAattacker\n".write(toFile: outside, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(atPath: path, withDestinationPath: outside)
+
+        let store = KnownHosts(path: path)
+        XCTAssertEqual(
+            store.check(host: "srv", port: 22, keyString: "ssh-ed25519 AAAAattacker"),
+            .storageFailure,
+            "a symlinked trust store must never establish host trust")
+        XCTAssertEqual(
+            try String(contentsOfFile: outside, encoding: .utf8),
+            "srv:22 ssh-ed25519 AAAAattacker\n")
+    }
+
+    func testKnownHostsFileIsOwnerOnly() throws {
+        let dir = NSTemporaryDirectory() + "skerry-kh-mode-\(UUID().uuidString)"
+        let path = dir + "/known_hosts"
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+        let store = KnownHosts(path: path)
+        XCTAssertEqual(store.check(host: "srv", port: 22, keyString: "ssh-ed25519 AAAAx"), .learned)
+        let attrs = try FileManager.default.attributesOfItem(atPath: path)
+        let permissions = (attrs[.posixPermissions] as? NSNumber)?.intValue ?? 0
+        XCTAssertEqual(permissions & 0o777, 0o600)
+    }
+
     // Positiv väg: okänd värd lärs in, återanslutning litar på samma nyckel.
     func testLearnThenTrustEndToEnd() async throws {
         let server = try LoopbackServer.start(password: "pw")
