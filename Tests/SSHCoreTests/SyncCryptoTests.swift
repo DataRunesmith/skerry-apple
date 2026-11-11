@@ -128,6 +128,16 @@ final class SyncCryptoTests: XCTestCase {
         }
     }
 
+
+    func testSealRejectsOutOfRangeIterationCounts() {
+        XCTAssertThrowsError(
+            try SyncCrypto.seal(SyncState(), passphrase: "pw", iterations: SyncCrypto.minIterations - 1)
+        ) { XCTAssertEqual($0 as? SyncCryptoError, .badFormat) }
+        XCTAssertThrowsError(
+            try SyncCrypto.seal(SyncState(), passphrase: "pw", iterations: SyncCrypto.maxIterations + 1)
+        ) { XCTAssertEqual($0 as? SyncCryptoError, .badFormat) }
+    }
+
     /// Värdena MÅSTE vara samma som LinuxApps (`sync_crypto.rs`). Går de isär
     /// blir ett kuvert som ena plattformen skrivit oläsbart på den andra —
     /// en synk som slutar fungera utan att någon ändrat något.
