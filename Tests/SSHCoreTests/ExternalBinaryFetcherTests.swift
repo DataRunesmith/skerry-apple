@@ -111,4 +111,39 @@ final class ExternalBinaryFetcherTests: XCTestCase {
         let data = try Data(contentsOf: path)
         XCTAssertEqual(ExternalBinaryFetcher.sha256Hex(data), sampleSHA256)
     }
+
+    func testRejectsPathTraversalBeforeNetworkOrFilesystemChanges() async throws {
+        let cacheDir = freshCacheDir()
+        defer { try? FileManager.default.removeItem(at: cacheDir) }
+        let unreachable = URL(string: "https://127.0.0.1.invalid/never-fetch")!
+        do {
+            _ = try await ExternalBinaryFetcher.fetch(
+                url: unreachable,
+                expectedSHA256: sampleSHA256,
+                cacheDir: cacheDir,
+                binaryName: "../outside")
+            XCTFail("förväntade invalidBinaryName")
+        } catch ExternalBinaryError.invalidBinaryName {
+            // Expected: reject before creating the cache directory or making a request.
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: cacheDir.path))
+    }
+
+    func testRejectsMalformedChecksumBeforeNetworkOrFilesystemChanges() async throws {
+        let cacheDir = freshCacheDir()
+        defer { try? FileManager.default.removeItem(at: cacheDir) }
+        let unreachable = URL(string: "https://127.0.0.1.invalid/never-fetch")!
+        do {
+            _ = try await ExternalBinaryFetcher.fetch(
+                url: unreachable,
+                expectedSHA256: "not-a-sha256",
+                cacheDir: cacheDir,
+                binaryName: "sample")
+            XCTFail("förväntade invalidChecksum")
+        } catch ExternalBinaryError.invalidChecksum {
+            // Expected: reject before creating the cache directory or making a request.
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: cacheDir.path))
+    }
+
 }
