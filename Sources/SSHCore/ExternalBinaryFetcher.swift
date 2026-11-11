@@ -59,6 +59,22 @@ public enum ExternalBinaryFetcher {
             throw ExternalBinaryError.invalidChecksum
         }
 
+        do {
+            try FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+            if (try? FileManager.default.destinationOfSymbolicLink(atPath: cacheDir.path)) != nil {
+                throw ExternalBinaryError.cacheWriteFailed("cache directory must not be a symbolic link")
+            }
+            let attributes = try FileManager.default.attributesOfItem(atPath: cacheDir.path)
+            guard attributes[.type] as? FileAttributeType == .typeDirectory else {
+                throw ExternalBinaryError.cacheWriteFailed("cache path is not a directory")
+            }
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: cacheDir.path)
+        } catch let error as ExternalBinaryError {
+            throw error
+        } catch {
+            throw ExternalBinaryError.cacheWriteFailed("\(error)")
+        }
+
         let destination = cacheDir.appendingPathComponent(binaryName)
         let cachedIsSymlink = (try? FileManager.default.destinationOfSymbolicLink(atPath: destination.path)) != nil
         if !cachedIsSymlink,
