@@ -12,13 +12,13 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate {
     private let store: KnownHosts
     // NIOSSH stänger inte anslutningen självt när vi avvisar — sessionen får
     // signalen härigenom så pågående anrop inte hänger.
-    private let onReject: (HostKeyInfo) -> Void
+    private let onFailure: (SSHError) -> Void
 
-    init(host: String, port: Int, store: KnownHosts, onReject: @escaping (HostKeyInfo) -> Void) {
+    init(host: String, port: Int, store: KnownHosts, onFailure: @escaping (SSHError) -> Void) {
         self.host = host
         self.port = port
         self.store = store
-        self.onReject = onReject
+        self.onFailure = onFailure
     }
 
     func validateHostKey(
@@ -31,8 +31,13 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate {
             validationCompletePromise.succeed(())
         case .changed:
             let info = fingerprint(of: hostKey)
-            onReject(info)
-            validationCompletePromise.fail(SSHError.hostKeyRejected(info))
+            let error = SSHError.hostKeyRejected(info)
+            onFailure(error)
+            validationCompletePromise.fail(error)
+        case .storageFailure:
+            let error = SSHError.knownHostsUnavailable
+            onFailure(error)
+            validationCompletePromise.fail(error)
         }
     }
 }
