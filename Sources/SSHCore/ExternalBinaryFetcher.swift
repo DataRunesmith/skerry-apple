@@ -23,6 +23,7 @@ public enum ExternalBinaryError: Error, Sendable, Equatable {
     case cacheWriteFailed(String)
     case invalidBinaryName
     case invalidChecksum
+    case downloadTooLarge
 }
 
 public enum ExternalBinaryFetcher {
@@ -51,6 +52,9 @@ public enum ExternalBinaryFetcher {
             !binaryName.contains("\0")
         else {
             throw ExternalBinaryError.invalidBinaryName
+        }
+        guard url.scheme?.lowercased() == "https", url.host != nil, url.user == nil, url.password == nil else {
+            throw ExternalBinaryError.downloadFailed("endast HTTPS-URL:er utan inbäddade uppgifter tillåts")
         }
         let expected = expectedSHA256.lowercased()
         guard expected.utf8.count == 64,
@@ -89,9 +93,15 @@ public enum ExternalBinaryFetcher {
         let data: Data
         do {
             let (downloaded, response) = try await session.data(from: url)
-            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            guard let http = response as? HTTPURLResponse,
+                  (200...299).contains(http.statusCode),
+                  http.url?.scheme?.lowercased() == "https"
+            else {
                 let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-                throw ExternalBinaryError.downloadFailed("HTTP \(status) för \(url.absoluteString)")
+                throw ExternalBinaryError.downloadFailed("HTTP \\(status) eller osäker omdirigering för \\(url.absoluteString)")
+            }
+            guard downloaded.count <= 256 * 1024 * 1024 else {
+                throw ExternalBinaryError.downloadTooLarge
             }
             data = downloaded
         } catch let error as ExternalBinaryError {
