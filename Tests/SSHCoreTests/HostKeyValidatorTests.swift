@@ -144,9 +144,9 @@ final class TOFUHostKeyValidatorTests: XCTestCase {
         let (store, path) = temporaryStore()
         defer { try? FileManager.default.removeItem(atPath: path) }
 
-        var rejections: [HostKeyInfo] = []
+        var rejections: [SSHError] = []
         let validator = TOFUHostKeyValidator(
-            host: "srv.example", port: 22, store: store, onReject: { rejections.append($0) }
+            host: "srv.example", port: 22, store: store, onFailure: { rejections.append($0) }
         )
 
         guard case .success = try validate(validator, ed25519Line, on: loop) else {
@@ -162,9 +162,9 @@ final class TOFUHostKeyValidatorTests: XCTestCase {
         let (store, path) = temporaryStore()
         defer { try? FileManager.default.removeItem(atPath: path) }
 
-        var rejections: [HostKeyInfo] = []
+        var rejections: [SSHError] = []
         let validator = TOFUHostKeyValidator(
-            host: "srv.example", port: 22, store: store, onReject: { rejections.append($0) }
+            host: "srv.example", port: 22, store: store, onFailure: { rejections.append($0) }
         )
 
         _ = try validate(validator, ed25519Line, on: loop)   // lär in
@@ -183,9 +183,9 @@ final class TOFUHostKeyValidatorTests: XCTestCase {
         let (store, path) = temporaryStore()
         defer { try? FileManager.default.removeItem(atPath: path) }
 
-        var rejections: [HostKeyInfo] = []
+        var rejections: [SSHError] = []
         let validator = TOFUHostKeyValidator(
-            host: "srv.example", port: 22, store: store, onReject: { rejections.append($0) }
+            host: "srv.example", port: 22, store: store, onFailure: { rejections.append($0) }
         )
 
         _ = try validate(validator, ed25519Line, on: loop)   // lär in den äkta
@@ -200,7 +200,10 @@ final class TOFUHostKeyValidatorTests: XCTestCase {
         XCTAssertEqual(info.keyType, "ecdsa-sha2-nistp256", "avtrycket ska gälla den NYA nyckeln")
 
         XCTAssertEqual(rejections.count, 1, "sessionen måste få veta, annars hänger anropet")
-        XCTAssertEqual(rejections[0].sha256Fingerprint, info.sha256Fingerprint)
+        guard case .hostKeyRejected(let rejectedInfo) = rejections[0] else {
+            return XCTFail("fel feltyp skickades till sessionen")
+        }
+        XCTAssertEqual(rejectedInfo.sha256Fingerprint, info.sha256Fingerprint)
     }
 
     /// Samma värdnamn på en annan PORT är en annan värd. Slås de ihop
@@ -211,10 +214,10 @@ final class TOFUHostKeyValidatorTests: XCTestCase {
         defer { try? FileManager.default.removeItem(atPath: path) }
 
         let onPort22 = TOFUHostKeyValidator(
-            host: "srv.example", port: 22, store: store, onReject: { _ in }
+            host: "srv.example", port: 22, store: store, onFailure: { _ in }
         )
         let onPort2222 = TOFUHostKeyValidator(
-            host: "srv.example", port: 2222, store: store, onReject: { _ in }
+            host: "srv.example", port: 2222, store: store, onFailure: { _ in }
         )
 
         _ = try validate(onPort22, ed25519Line, on: loop)
