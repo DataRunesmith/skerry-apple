@@ -156,6 +156,7 @@ public struct EncryptedFolderSyncProvider: SyncProvider {
         let dir = (path as NSString).deletingLastPathComponent
         try FileManager.default.createDirectory(
             atPath: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-        try SyncCrypto.seal(state, passphrase: passphrase).write(to: URL(fileURLWithPath: path))
+        let data = try SyncCrypto.seal(state, passphrase: passphrase)
+        try PrivateFile.write(data, to: path)
     }
 }
