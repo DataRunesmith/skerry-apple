@@ -41,17 +41,21 @@ public final class KnownHosts {
         }
         return errno == ENOENT || errno == ENOTDIR
     }
-    private static func loadEntries(path: String?) -> [String: String] {
-        guard let path, hasSafeParentDirectory(path) else { return [:] }
+    private static func loadEntries(path: String?) -> (entries: [String: String], failed: Bool) {
+        guard let path, hasSafeParentDirectory(path) else {
+            return ([:], path != nil)
+        }
         // Open without following symlinks and bound the file before reading it.
         let fd = open(path, O_RDONLY | O_NOFOLLOW)
-        guard fd >= 0 else { return [:] }
+        if fd < 0 {
+            return ([:], errno != ENOENT && errno != ENOTDIR)
+        }
         defer { _ = close(fd) }
         var info = stat()
         guard fstat(fd, &info) == 0,
               (info.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG),
               info.st_size >= 0, info.st_size <= 4 * 1024 * 1024
-        else { return [:] }
+        else { return ([:], true) }
 
         var data = Data()
         var buffer = [UInt8](repeating: 0, count: 64 * 1024)
@@ -61,20 +65,20 @@ public final class KnownHosts {
             }
             if count < 0 {
                 if errno == EINTR { continue }
-                return [:]
+                return ([:], true)
             }
             if count == 0 { break }
             data.append(contentsOf: buffer.prefix(count))
-            if data.count > 4 * 1024 * 1024 { return [:] }
+            if data.count > 4 * 1024 * 1024 { return ([:], true) }
         }
-        guard let text = String(data: data, encoding: .utf8) else { return [:] }
+        guard let text = String(data: data, encoding: .utf8) else { return ([:], true) }
         var out: [String: String] = [:]
-        for line in text.split(whereSeparator: { $0 == "\\n" || $0 == "\\r" }) {
+        for line in text.split(whereSeparator: { $0 == "\n" || $0 == "\r" }) {
             let parts = line.split(separator: " ", maxSplits: 1)
             guard parts.count == 2 else { continue }
             out[String(parts[0])] = String(parts[1])
         }
-        return out
+        return (out, false)
     }
 
     /// Avgör hur en presenterad nyckel förhåller sig till vad vi sett tidigare.
@@ -112,15 +116,16 @@ public final class KnownHosts {
         guard fd >= 0 else { return false }
         defer { _ = close(fd) }
 
+        let bytes = Array("\(id) \(keyString)\n".utf8)
         var info = stat()
         guard fstat(fd, &info) == 0,
               (info.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG),
+              info.st_size >= 0,
+              info.st_size + off_t(bytes.count) <= 4 * 1024 * 1024,
               fchmod(fd, 0o600) == 0
         else {
             return false
         }
-
-        let bytes = Array("\(id) \(keyString)\n".utf8)
         var offset = 0
         while offset < bytes.count {
             let written = bytes.withUnsafeBytes { raw in
