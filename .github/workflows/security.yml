@@ -42,6 +42,10 @@ jobs:
         env:
           SEMGREP_SEND_METRICS: "off"
         run: semgrep scan --config p/default --sarif --output semgrep.sarif .
+      - name: Validate Semgrep SARIF report
+        if: ${{ !cancelled() && steps.semgrep_scan.outcome == 'success' }}
+        shell: bash
+        run: test -s semgrep.sarif
       - name: Preserve Semgrep SARIF
         id: semgrep_artifact
         if: ${{ always() && steps.semgrep_scan.outcome == 'success' && hashFiles('semgrep.sarif') != '' }}
@@ -67,6 +71,8 @@ jobs:
           ' "$SARIF_FILE"
   mobsfscan:
     name: MobSF source scan (ios)
+    outputs:
+      sarif_artifact: ${{ steps.mobsf_artifact.outcome == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -87,7 +93,12 @@ jobs:
       - name: Run mobsfscan
         id: mobsfscan
         run: mobsfscan . --type ios --sarif --output mobsfscan.sarif
+      - name: Validate MobSF SARIF report
+        if: ${{ !cancelled() && steps.mobsfscan.outcome != 'skipped' }}
+        shell: bash
+        run: test -s mobsfscan.sarif
       - name: Preserve MobSF SARIF
+        id: mobsf_artifact
         if: ${{ always() && steps.mobsfscan.outcome != 'skipped' && hashFiles('mobsfscan.sarif') != '' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -96,7 +107,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
       - name: Summarize mobsfscan-ios findings when SARIF upload is unavailable
-        if: ${{ !cancelled() && steps.mobsfscan.outcome != 'skipped' && hashFiles('mobsfscan.sarif') != '' && github.event_name == 'pull_request' && (github.event.pull_request.head.repo.fork == true) }}
+        if: ${{ !cancelled() && hashFiles('mobsfscan.sarif') != '' && (steps.mobsfscan.outcome == 'failure' || steps.mobsf_artifact.outcome == 'failure' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true)) }}
         env:
           SARIF_FILE: mobsfscan.sarif
         run: |
@@ -117,27 +128,30 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
       - name: Download scanner reports
+        if: ${{ !cancelled() }}
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: sarif-*
-          path: sarif
+          path: ${{ runner.temp }}/sarif-artifacts
           merge-multiple: true
       - name: Validate expected SARIF artifacts
         if: ${{ !cancelled() }}
         shell: bash
         run: |
           set -eu
-          if [ "${{ needs.semgrep.result }}" = "success" ]; then test -s sarif/semgrep.sarif; fi
-          if [ "${{ needs.mobsfscan.result }}" = "success" ]; then test -s sarif/mobsfscan.sarif; fi
+          if [ "${{ needs.semgrep.result }}" = "success" ]; then test -s "$RUNNER_TEMP/sarif-artifacts/semgrep.sarif"; fi
+          if [ "${{ needs.mobsfscan.outputs.sarif_artifact }}" = "true" ]; then test -s "$RUNNER_TEMP/sarif-artifacts/mobsfscan.sarif"; fi
       - name: Upload Semgrep results
-        if: ${{ !cancelled() && hashFiles('sarif/semgrep.sarif') != '' }}
+        if: ${{ !cancelled() && needs.semgrep.result == 'success' }}
         uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
-          sarif_file: sarif/semgrep.sarif
+          sarif_file: ${{ runner.temp }}/sarif-artifacts/semgrep.sarif
+          checkout_path: ${{ github.workspace }}
           category: semgrep
       - name: Upload MobSF results
-        if: ${{ !cancelled() && hashFiles('sarif/mobsfscan.sarif') != '' }}
+        if: ${{ !cancelled() && needs.mobsfscan.outputs.sarif_artifact == 'true' }}
         uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
-          sarif_file: sarif/mobsfscan.sarif
+          sarif_file: ${{ runner.temp }}/sarif-artifacts/mobsfscan.sarif
+          checkout_path: ${{ github.workspace }}
           category: mobsfscan-ios
