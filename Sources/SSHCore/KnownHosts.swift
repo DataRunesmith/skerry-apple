@@ -35,16 +35,33 @@ public final class KnownHosts {
 
     private static func loadEntries(path: String?) -> [String: String] {
         guard let path else { return [:] }
-        // Never trust entries loaded through a symlink: an attacker able to
-        // replace known_hosts could otherwise choose the key that TOFU trusts.
-        if (try? FileManager.default.destinationOfSymbolicLink(atPath: path)) != nil {
-            return [:]
+        // Open without following symlinks and bound the file before reading it.
+        let fd = open(path, O_RDONLY | O_NOFOLLOW)
+        guard fd >= 0 else { return [:] }
+        defer { _ = close(fd) }
+        var info = stat()
+        guard fstat(fd, &info) == 0,
+              (info.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG),
+              info.st_size >= 0, info.st_size <= 4 * 1024 * 1024
+        else { return [:] }
+
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 64 * 1024)
+        while true {
+            let count = buffer.withUnsafeMutableBytes { raw in
+                read(fd, raw.baseAddress, raw.count)
+            }
+            if count < 0 {
+                if errno == EINTR { continue }
+                return [:]
+            }
+            if count == 0 { break }
+            data.append(contentsOf: buffer.prefix(count))
+            if data.count > 4 * 1024 * 1024 { return [:] }
         }
-        guard let text = try? String(contentsOfFile: path, encoding: .utf8) else {
-            return [:]
-        }
+        guard let text = String(data: data, encoding: .utf8) else { return [:] }
         var out: [String: String] = [:]
-        for line in text.split(whereSeparator: { $0 == "\n" || $0 == "\r" }) {
+        for line in text.split(whereSeparator: { $0 == "\\n" || $0 == "\\r" }) {
             let parts = line.split(separator: " ", maxSplits: 1)
             guard parts.count == 2 else { continue }
             out[String(parts[0])] = String(parts[1])
