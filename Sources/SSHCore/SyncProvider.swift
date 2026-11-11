@@ -75,6 +75,10 @@ public struct FolderSyncProvider: SyncProvider {
             atPath: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(state).write(to: URL(fileURLWithPath: path))
+        let data = try encoder.encode(state)
+        guard data.count <= SyncFileLimits.maxBytes else {
+            throw SyncFileError.tooLarge(maxBytes: SyncFileLimits.maxBytes)
+        }
+        try PrivateFile.write(data, to: path)
     }
 }
