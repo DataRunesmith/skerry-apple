@@ -47,8 +47,8 @@ public enum ExternalBinaryFetcher {
             binaryName != ".",
             binaryName != "..",
             !binaryName.contains("/"),
-            !binaryName.contains("\\\\"),
-            !binaryName.contains("\\0")
+            !binaryName.contains("\\"),
+            !binaryName.contains("\0")
         else {
             throw ExternalBinaryError.invalidBinaryName
         }
