@@ -99,7 +99,7 @@ jobs:
         run: test -s mobsfscan.sarif
       - name: Preserve MobSF SARIF
         id: mobsf_artifact
-        if: ${{ always() && steps.mobsfscan.outcome != 'skipped' && hashFiles('mobsfscan.sarif') != '' }}
+        if: ${{ !cancelled() && steps.mobsfscan.outcome != 'skipped' && hashFiles('mobsfscan.sarif') != '' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sarif-mobsfscan
@@ -111,7 +111,7 @@ jobs:
         env:
           SARIF_FILE: mobsfscan.sarif
         run: |
-          jq -r '[.runs[].results[]?] | if length == 0 then "No findings reported." else .[] | "Finding: \(.ruleId // "unknown") at \([.locations[]?.physicalLocation? | select(.artifactLocation.uri != null) | "\(.artifactLocation.uri):\(.region.startLine // 1)"] | join(", "))" end' "$SARIF_FILE"
+          jq -r '[.runs[].results[]?] | if length == 0 then "No findings reported." else .[] | "Finding: \(.ruleId // "unknown") at \([.locations[]?.physicalLocation? | select(.artifactLocation.uri != null) | "\(.artifactLocation.uri):\(.region.startLine // 1)"] | join(", ") | @json)" end' "$SARIF_FILE"
   publish-sarif:
     name: Publish SARIF results
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
