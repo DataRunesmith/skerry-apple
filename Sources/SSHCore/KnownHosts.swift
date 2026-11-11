@@ -17,7 +17,7 @@ public final class KnownHosts {
         case trusted                    // matchar lagrad nyckel
         case learned                    // ny värd — nu inlärd
         case changed(stored: String)    // skiljer sig från lagrad nyckel
-        case storageFailure             // kunde inte persistera en ny värdnyckel
+        case storageFailure             // could not persist a new host key
     }
 
     private let path: String?
@@ -36,22 +36,38 @@ public final class KnownHosts {
         self.storageUnavailable = loaded.failed
     }
 
-    private static func hasSafeParentDirectory(_ path: String) -> Bool {
-        let directory = (path as NSString).deletingLastPathComponent
-        var info = stat()
-        if lstat(directory, &info) == 0 {
-            return (info.st_mode & mode_t(S_IFMT)) == mode_t(S_IFDIR)
+    // Keep every lookup anchored to an open directory; reject symlink ancestors.
+    private static func openParent(_ path: String, create: Bool) -> Int32 {
+        let parts = path.split(separator: "/").map(String.init)
+        guard let name = parts.last, name != ".", name != ".." else { return -1 }
+        var parent = open(path.hasPrefix("/") ? "/" : ".", O_RDONLY | O_DIRECTORY)
+        guard parent >= 0 else { return -1 }
+        for component in parts.dropLast() {
+            if create {
+                if mkdirat(parent, component, mode_t(0o700)) != 0 && errno != EEXIST {
+                    let saved = errno
+                    _ = close(parent)
+                    errno = saved
+                    return -1
+                }
+            }
+            let next = openat(parent, component, O_RDONLY | O_DIRECTORY | O_NOFOLLOW)
+            let saved = errno
+            _ = close(parent)
+            guard next >= 0 else { errno = saved; return -1 }
+            parent = next
         }
-        return errno == ENOENT || errno == ENOTDIR
+        return parent
     }
     private static func loadEntries(path: String?) -> (entries: [String: String], failed: Bool) {
-        guard let path, hasSafeParentDirectory(path) else {
-            return ([:], path != nil)
-        }
+        guard let path else { return ([:], false) }
+        let parent = openParent(path, create: false)
+        guard parent >= 0 else { return ([:], errno != ENOENT) }
+        defer { _ = close(parent) }
         // Open without following symlinks and bound the file before reading it.
-        let fd = open(path, O_RDONLY | O_NOFOLLOW)
+        let fd = openat(parent, (path as NSString).lastPathComponent, O_RDONLY | O_NOFOLLOW | O_NONBLOCK)
         if fd < 0 {
-            return ([:], errno != ENOENT && errno != ENOTDIR)
+            return ([:], errno != ENOENT)
         }
         defer { _ = close(fd) }
         var info = stat()
@@ -101,22 +117,15 @@ public final class KnownHosts {
         }
     }
 
-    // Anropas med låset hållet. A failed write must fail closed: learning a
+    // Called with the lock held. A failed write must fail closed: learning a
     // key only in memory would silently disable TOFU after the next restart.
     private func append(id: String, keyString: String) -> Bool {
         guard let path else { return true } // Explicit in-memory mode for tests.
-        let directory = (path as NSString).deletingLastPathComponent
-        do {
-            try FileManager.default.createDirectory(
-                atPath: directory,
-                withIntermediateDirectories: true,
-                attributes: [.posixPermissions: 0o700])
-        } catch {
-            return false
-        }
-        guard Self.hasSafeParentDirectory(path) else { return false }
-
-        let fd = open(path, O_WRONLY | O_APPEND | O_CREAT | O_NOFOLLOW, mode_t(0o600))
+        let parent = Self.openParent(path, create: true)
+        guard parent >= 0 else { return false }
+        defer { _ = close(parent) }
+        let fd = openat(parent, (path as NSString).lastPathComponent,
+                        O_WRONLY | O_APPEND | O_CREAT | O_NOFOLLOW | O_NONBLOCK, mode_t(0o600))
         guard fd >= 0 else { return false }
         defer { _ = close(fd) }
 

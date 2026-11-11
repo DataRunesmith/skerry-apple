@@ -15,6 +15,20 @@ import Foundation
 public enum SyncFileLimits {
     public static let maxBytes = 64 * 1024 * 1024
 
+    /// Preserve a shared sync-file symlink and atomically update its regular target.
+    static func write(_ data: Data, to path: String) throws {
+        let fm = FileManager.default
+        var destination = path
+        if (try? fm.destinationOfSymbolicLink(atPath: path)) != nil {
+            destination = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+            let attributes = try fm.attributesOfItem(atPath: destination)
+            guard attributes[.type] as? FileAttributeType == .typeRegular else {
+                throw CocoaError(.fileWriteInvalidFileName)
+            }
+        }
+        try PrivateFile.write(data, to: destination)
+    }
+
     /// Läser en fil men vägrar mer än ``maxBytes``.
     ///
     /// Läser via `read(upToCount: maxBytes + 1)` i stället för att först
@@ -79,6 +93,6 @@ public struct FolderSyncProvider: SyncProvider {
         guard data.count <= SyncFileLimits.maxBytes else {
             throw SyncFileError.tooLarge(maxBytes: SyncFileLimits.maxBytes)
         }
-        try PrivateFile.write(data, to: path)
+        try SyncFileLimits.write(data, to: path)
     }
 }

@@ -157,6 +157,6 @@ public struct EncryptedFolderSyncProvider: SyncProvider {
         try FileManager.default.createDirectory(
             atPath: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let data = try SyncCrypto.seal(state, passphrase: passphrase)
-        try PrivateFile.write(data, to: path)
+        try SyncFileLimits.write(data, to: path)
     }
 }

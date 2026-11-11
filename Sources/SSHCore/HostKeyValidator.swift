@@ -6,7 +6,10 @@ import NIOSSH
 /// TOFU-validering av värdnyckeln mot en `KnownHosts`-lagring. Okänd värd lärs
 /// in; oförändrad accepteras; ändrad avvisas (MITM-skydd). Ersätter den tidigare
 /// "acceptera allt"-stubben.
-final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate {
+// Configuration is immutable, KnownHosts serializes its state with a lock, and
+// the failure callback is invoked only on the validation promise's event loop.
+final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unchecked Sendable {
+    private static let ioQueue = DispatchQueue(label: "skerry.known-hosts.io")
     private let host: String
     private let port: Int
     private let store: KnownHosts
@@ -26,18 +29,23 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate {
         validationCompletePromise: EventLoopPromise<Void>
     ) {
         let keyString = String(openSSHPublicKey: hostKey)
-        switch store.check(host: host, port: port, keyString: keyString) {
-        case .trusted, .learned:
-            validationCompletePromise.succeed(())
-        case .changed:
-            let info = fingerprint(of: hostKey)
-            let error = SSHError.hostKeyRejected(info)
-            onFailure(error)
-            validationCompletePromise.fail(error)
-        case .storageFailure:
-            let error = SSHError.knownHostsUnavailable
-            onFailure(error)
-            validationCompletePromise.fail(error)
+        Self.ioQueue.async { [self] in
+            let verdict = store.check(host: host, port: port, keyString: keyString)
+            validationCompletePromise.futureResult.eventLoop.execute { [self] in
+                switch verdict {
+                case .trusted, .learned:
+                    validationCompletePromise.succeed(())
+                case .changed:
+                    let info = fingerprint(of: hostKey)
+                    let error = SSHError.hostKeyRejected(info)
+                    onFailure(error)
+                    validationCompletePromise.fail(error)
+                case .storageFailure:
+                    let error = SSHError.knownHostsUnavailable
+                    onFailure(error)
+                    validationCompletePromise.fail(error)
+                }
+            }
         }
     }
 }

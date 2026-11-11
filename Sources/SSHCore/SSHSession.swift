@@ -340,8 +340,8 @@ public final class SSHSession {
         }
         let validator = TOFUHostKeyValidator(
             host: target.host, port: target.port, store: knownHosts
-        ) { [weak self] info in
-            self?.signalFatal(SSHError.hostKeyRejected(info))
+        ) { [weak self] error in
+            self?.signalFatal(error)
         }
 
         let directTCPIP = SSHChannelType.DirectTCPIP(

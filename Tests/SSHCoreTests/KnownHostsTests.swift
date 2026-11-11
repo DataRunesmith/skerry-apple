@@ -15,7 +15,7 @@ final class KnownHostsTests: XCTestCase {
     }
 
     func testFilePersistsAndReloads() throws {
-        let dir = NSTemporaryDirectory() + "skerry-kh-\(ProcessInfo.processInfo.processIdentifier)"
+        let dir = (URL(fileURLWithPath: NSTemporaryDirectory()).resolvingSymlinksInPath().path + "/") + "skerry-kh-\(ProcessInfo.processInfo.processIdentifier)"
         let path = dir + "/known_hosts"
         defer { try? FileManager.default.removeItem(atPath: dir) }
 
@@ -31,7 +31,7 @@ final class KnownHostsTests: XCTestCase {
 
 
     func testSymlinkedKnownHostsFailsClosedInsteadOfTrustingExternalFile() throws {
-        let root = NSTemporaryDirectory() + "skerry-kh-link-\(UUID().uuidString)"
+        let root = (URL(fileURLWithPath: NSTemporaryDirectory()).resolvingSymlinksInPath().path + "/") + "skerry-kh-link-\(UUID().uuidString)"
         let directory = root + "/.skerry"
         let outside = root + "/attacker-controlled"
         let path = directory + "/known_hosts"
@@ -50,8 +50,18 @@ final class KnownHostsTests: XCTestCase {
             "srv:22 ssh-ed25519 AAAAattacker\n")
     }
 
+    func testSymlinkAncestorFailsClosed() throws {
+        let root = (URL(fileURLWithPath: NSTemporaryDirectory()).resolvingSymlinksInPath().path + "/") + "skerry-kh-ancestor-\(UUID().uuidString)"
+        defer { try? FileManager.default.removeItem(atPath: root) }
+        try FileManager.default.createDirectory(atPath: root + "/real/child", withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(atPath: root + "/link", withDestinationPath: root + "/real")
+        let store = KnownHosts(path: root + "/link/child/known_hosts")
+        XCTAssertEqual(store.check(host: "srv", port: 22, keyString: "key"), .storageFailure)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root + "/real/child/known_hosts"))
+    }
+
     func testKnownHostsFileIsOwnerOnly() throws {
-        let dir = NSTemporaryDirectory() + "skerry-kh-mode-\(UUID().uuidString)"
+        let dir = (URL(fileURLWithPath: NSTemporaryDirectory()).resolvingSymlinksInPath().path + "/") + "skerry-kh-mode-\(UUID().uuidString)"
         let path = dir + "/known_hosts"
         defer { try? FileManager.default.removeItem(atPath: dir) }
         let store = KnownHosts(path: path)

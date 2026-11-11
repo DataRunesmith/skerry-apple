@@ -54,7 +54,7 @@ public enum ExternalBinaryFetcher {
             throw ExternalBinaryError.invalidBinaryName
         }
         guard url.scheme?.lowercased() == "https", url.host != nil, url.user == nil, url.password == nil else {
-            throw ExternalBinaryError.downloadFailed("endast HTTPS-URL:er utan inbäddade uppgifter tillåts")
+            throw ExternalBinaryError.downloadFailed("only HTTPS URLs without embedded credentials are allowed")
         }
         let expected = expectedSHA256.lowercased()
         guard expected.utf8.count == 64,
@@ -92,18 +92,7 @@ public enum ExternalBinaryFetcher {
 
         let data: Data
         do {
-            let (downloaded, response) = try await session.data(from: url)
-            guard let http = response as? HTTPURLResponse,
-                  (200...299).contains(http.statusCode),
-                  http.url?.scheme?.lowercased() == "https"
-            else {
-                let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-                throw ExternalBinaryError.downloadFailed("HTTP \(status) eller osäker omdirigering för \(url.absoluteString)")
-            }
-            guard downloaded.count <= 256 * 1024 * 1024 else {
-                throw ExternalBinaryError.downloadTooLarge
-            }
-            data = downloaded
+            data = try await BoundedBinaryDownload.download(url, configuration: session.configuration)
         } catch let error as ExternalBinaryError {
             throw error
         } catch {
@@ -134,5 +123,87 @@ public enum ExternalBinaryFetcher {
 
     static func sha256Hex(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+// A separate session retains the injected configuration (including URLProtocol mocks),
+// while enforcing redirect and memory limits before URLSession follows or buffers data.
+final class BoundedBinaryDownload: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+    private static let limit = 256 * 1024 * 1024
+    private let sourceURL: URL
+    private var data = Data()
+
+    init(url: URL) {
+        self.sourceURL = url
+        super.init()
+    }
+    private var failure: Error?
+    private var continuation: CheckedContinuation<Data, Error>?
+
+    private static func allowed(_ url: URL) -> Bool {
+        url.scheme?.lowercased() == "https" && url.host != nil && url.user == nil && url.password == nil
+    }
+
+    static func download(_ url: URL, configuration: URLSessionConfiguration) async throws -> Data {
+        let delegate = BoundedBinaryDownload(url: url)
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = 1
+        let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: queue)
+        defer { session.invalidateAndCancel() }
+        return try await withCheckedThrowingContinuation { continuation in
+            delegate.continuation = continuation
+            session.dataTask(with: url).resume()
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask,
+                    willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest,
+                    completionHandler: @escaping (URLRequest?) -> Void) {
+        guard let url = request.url, Self.allowed(url) else {
+            failure = ExternalBinaryError.downloadFailed("redirect destination must be HTTPS without embedded credentials")
+            completionHandler(nil)
+            task.cancel()
+            return
+        }
+        completionHandler(request)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask,
+                    didReceive response: URLResponse,
+                    completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        guard let http = response as? HTTPURLResponse,
+              (200...299).contains(http.statusCode),
+              let url = http.url, Self.allowed(url) else {
+            failure = ExternalBinaryError.downloadFailed("HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1) or insecure redirect for \(sourceURL.absoluteString)")
+            completionHandler(.cancel)
+            return
+        }
+        guard response.expectedContentLength <= Int64(Self.limit) else {
+            failure = ExternalBinaryError.downloadTooLarge
+            completionHandler(.cancel)
+            return
+        }
+        completionHandler(.allow)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive chunk: Data) {
+        guard failure == nil else { return }
+        guard chunk.count <= Self.limit - data.count else {
+            failure = ExternalBinaryError.downloadTooLarge
+            data.removeAll()
+            dataTask.cancel()
+            return
+        }
+        data.append(chunk)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let error = failure ?? error {
+            continuation?.resume(throwing: error)
+        } else {
+            continuation?.resume(returning: data)
+        }
+        continuation = nil
     }
 }

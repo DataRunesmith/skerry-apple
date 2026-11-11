@@ -39,7 +39,7 @@ jobs:
         id: semgrep_scan
         env:
           SEMGREP_SEND_METRICS: "off"
-        run: docker run --rm --volume "$GITHUB_WORKSPACE:/src" --workdir /src --user "$(id -u):$(id -g)" --env HOME=/tmp --env SEMGREP_SEND_METRICS=off semgrep/semgrep@sha256:31e9989dbc5e2019ea2f793196480e0b2e43f881984f324d2452254a167684e8 semgrep scan --config p/default --sarif --output semgrep.sarif .
+        run: docker run --rm --volume "$GITHUB_WORKSPACE:/src" --workdir /src --user "$(id -u):$(id -g)" --env HOME=/tmp --env SEMGREP_SEND_METRICS=off semgrep/semgrep@sha256:31e9989dbc5e2019ea2f793196480e0b2e43f881984f324d2452254a167684e8 semgrep scan --strict --config p/default --sarif --output semgrep.sarif .
       - name: Validate Semgrep SARIF report
         if: ${{ !cancelled() && steps.semgrep_scan.outcome == 'success' }}
         shell: bash
@@ -50,6 +50,14 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sarif-semgrep
+          path: semgrep.sarif
+          if-no-files-found: error
+          retention-days: 1
+      - name: Preserve partial Semgrep SARIF on scan failure
+        if: ${{ !cancelled() && steps.semgrep_scan.outcome == 'failure' && hashFiles('semgrep.sarif') != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: partial-semgrep-report
           path: semgrep.sarif
           if-no-files-found: error
           retention-days: 1
@@ -94,6 +102,7 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          import logging
           import sys
 
           from mobsfscan import __version__
@@ -101,11 +110,26 @@ jobs:
           from mobsfscan.formatters import sarif
           from mobsfscan.mobsfscan import MobSFScan
 
+          class PlistFailures(logging.Handler):
+              def __init__(self):
+                  super().__init__(logging.WARNING)
+                  self.messages = []
+
+              def emit(self, record):
+                  message = record.getMessage()
+                  if "Failed to parse plist:" in message or "iOS Info.plist checks failed." in message:
+                      self.messages.append(message)
+
+          plist_failures = PlistFailures()
+          logging.getLogger("mobsfscan").addHandler(plist_failures)
           results = MobSFScan(["."], True, "ios").scan()
           errors = results.get("errors") or []
-          if errors:
+          if errors or plist_failures.messages:
               for error in errors:
                   print(f"MobSF scan error: {json.dumps(error, ensure_ascii=True)}", file=sys.stderr)
+              for message in plist_failures.messages:
+                  print(f"MobSF plist error: {json.dumps(message, ensure_ascii=True)}", file=sys.stderr)
+              print("Partial MobSF findings: " + json.dumps(results.get("results", {}), ensure_ascii=True))
               sys.exit(1)
 
           sarif.sarif_output("mobsfscan.sarif", results, __version__, ["."])
