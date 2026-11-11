@@ -98,7 +98,7 @@ public enum ExternalBinaryFetcher {
                   http.url?.scheme?.lowercased() == "https"
             else {
                 let status = (response as? HTTPURLResponse)?.statusCode ?? -1
-                throw ExternalBinaryError.downloadFailed("HTTP \\(status) eller osäker omdirigering för \\(url.absoluteString)")
+                throw ExternalBinaryError.downloadFailed("HTTP \(status) eller osäker omdirigering för \(url.absoluteString)")
             }
             guard downloaded.count <= 256 * 1024 * 1024 else {
                 throw ExternalBinaryError.downloadTooLarge
