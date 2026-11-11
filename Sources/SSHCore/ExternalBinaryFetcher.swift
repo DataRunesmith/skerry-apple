@@ -21,6 +21,8 @@ public enum ExternalBinaryError: Error, Sendable, Equatable {
     case downloadFailed(String)
     case checksumMismatch(expected: String, actual: String)
     case cacheWriteFailed(String)
+    case invalidBinaryName
+    case invalidChecksum
 }
 
 public enum ExternalBinaryFetcher {
@@ -40,10 +42,28 @@ public enum ExternalBinaryFetcher {
         binaryName: String,
         session: URLSession = .shared
     ) async throws -> URL {
-        let destination = cacheDir.appendingPathComponent(binaryName)
+        guard
+            !binaryName.isEmpty,
+            binaryName != ".",
+            binaryName != "..",
+            !binaryName.contains("/"),
+            !binaryName.contains("\\\\"),
+            !binaryName.contains("\\0")
+        else {
+            throw ExternalBinaryError.invalidBinaryName
+        }
         let expected = expectedSHA256.lowercased()
+        guard expected.utf8.count == 64,
+              expected.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) })
+        else {
+            throw ExternalBinaryError.invalidChecksum
+        }
 
-        if let existing = try? Data(contentsOf: destination), sha256Hex(existing) == expected {
+        let destination = cacheDir.appendingPathComponent(binaryName)
+        let cachedIsSymlink = (try? FileManager.default.destinationOfSymbolicLink(atPath: destination.path)) != nil
+        if !cachedIsSymlink,
+           let existing = try? Data(contentsOf: destination),
+           sha256Hex(existing) == expected {
             return destination
         }
         // Finns men med fel checksumma (korrupt eller ett gammalt, felaktigt
