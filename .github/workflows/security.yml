@@ -92,7 +92,27 @@ jobs:
         run: rm -f mobsfscan.sarif
       - name: Run mobsfscan
         id: mobsfscan
-        run: mobsfscan . --type ios --sarif --output mobsfscan.sarif
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+
+          from mobsfscan import __version__
+          from mobsfscan.__main__ import handle_exit
+          from mobsfscan.formatters import sarif
+          from mobsfscan.mobsfscan import MobSFScan
+
+          results = MobSFScan(["."], True, "ios").scan()
+          errors = results.get("errors") or []
+          if errors:
+              for error in errors:
+                  print(f"MobSF scan error: {json.dumps(error, ensure_ascii=True)}", file=sys.stderr)
+              sys.exit(1)
+
+          sarif.sarif_output("mobsfscan.sarif", results, __version__, ["."])
+          handle_exit(results, exit_warn=False, no_fail=False)
+          PY
       - name: Validate MobSF SARIF report
         if: ${{ !cancelled() && steps.mobsfscan.outcome != 'skipped' }}
         shell: bash
