@@ -1,5 +1,10 @@
 import Foundation
 import NIOConcurrencyHelpers
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 /// Lagrar sedda värdnycklar (Trust-On-First-Use). Första gången en värd ses
 /// lärs nyckeln in; nästa gång jämförs den. En ändrad nyckel är en varningssignal
@@ -12,6 +17,7 @@ public final class KnownHosts {
         case trusted                    // matchar lagrad nyckel
         case learned                    // ny värd — nu inlärd
         case changed(stored: String)    // skiljer sig från lagrad nyckel
+        case storageFailure             // kunde inte persistera en ny värdnyckel
     }
 
     private let path: String?
@@ -28,7 +34,13 @@ public final class KnownHosts {
     }
 
     private static func loadEntries(path: String?) -> [String: String] {
-        guard let path, let text = try? String(contentsOfFile: path, encoding: .utf8) else {
+        guard let path else { return [:] }
+        // Never trust entries loaded through a symlink: an attacker able to
+        // replace known_hosts could otherwise choose the key that TOFU trusts.
+        if (try? FileManager.default.destinationOfSymbolicLink(atPath: path)) != nil {
+            return [:]
+        }
+        guard let text = try? String(contentsOfFile: path, encoding: .utf8) else {
             return [:]
         }
         var out: [String: String] = [:]
@@ -48,26 +60,53 @@ public final class KnownHosts {
             if let stored = entries[id] {
                 return stored == keyString ? .trusted : .changed(stored: stored)
             }
+            guard append(id: id, keyString: keyString) else {
+                return .storageFailure
+            }
             entries[id] = keyString
-            append(id: id, keyString: keyString)
             return .learned
         }
     }
 
-    // Anropas med låset hållet.
-    private func append(id: String, keyString: String) {
-        guard let path else { return }
-        let dir = (path as NSString).deletingLastPathComponent
-        try? FileManager.default.createDirectory(
-            atPath: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-        let line = "\(id) \(keyString)\n"
-        if let handle = FileHandle(forWritingAtPath: path) {
-            defer { try? handle.close() }
-            _ = try? handle.seekToEnd()
-            try? handle.write(contentsOf: Data(line.utf8))
-        } else {
-            try? Data(line.utf8).write(to: URL(fileURLWithPath: path))
-            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
+    // Anropas med låset hållet. A failed write must fail closed: learning a
+    // key only in memory would silently disable TOFU after the next restart.
+    private func append(id: String, keyString: String) -> Bool {
+        guard let path else { return true } // Explicit in-memory mode for tests.
+        let directory = (path as NSString).deletingLastPathComponent
+        do {
+            try FileManager.default.createDirectory(
+                atPath: directory,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700])
+        } catch {
+            return false
         }
+
+        let fd = open(path, O_WRONLY | O_APPEND | O_CREAT | O_NOFOLLOW, mode_t(0o600))
+        guard fd >= 0 else { return false }
+        defer { _ = close(fd) }
+
+        var info = stat()
+        guard fstat(fd, &info) == 0,
+              (info.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG),
+              fchmod(fd, 0o600) == 0
+        else {
+            return false
+        }
+
+        let bytes = Array("\(id) \(keyString)\n".utf8)
+        var offset = 0
+        while offset < bytes.count {
+            let written = bytes.withUnsafeBytes { raw in
+                write(fd, raw.baseAddress!.advanced(by: offset), bytes.count - offset)
+            }
+            if written < 0 {
+                if errno == EINTR { continue }
+                return false
+            }
+            if written == 0 { return false }
+            offset += written
+        }
+        return fsync(fd) == 0
     }
 }
