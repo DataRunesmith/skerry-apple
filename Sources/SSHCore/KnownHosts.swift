@@ -33,8 +33,16 @@ public final class KnownHosts {
         self.entries = KnownHosts.loadEntries(path: path)
     }
 
+    private static func hasSafeParentDirectory(_ path: String) -> Bool {
+        let directory = (path as NSString).deletingLastPathComponent
+        var info = stat()
+        if lstat(directory, &info) == 0 {
+            return (info.st_mode & mode_t(S_IFMT)) == mode_t(S_IFDIR)
+        }
+        return errno == ENOENT || errno == ENOTDIR
+    }
     private static func loadEntries(path: String?) -> [String: String] {
-        guard let path else { return [:] }
+        guard let path, hasSafeParentDirectory(path) else { return [:] }
         // Open without following symlinks and bound the file before reading it.
         let fd = open(path, O_RDONLY | O_NOFOLLOW)
         guard fd >= 0 else { return [:] }
@@ -98,6 +106,7 @@ public final class KnownHosts {
         } catch {
             return false
         }
+        guard Self.hasSafeParentDirectory(path) else { return false }
 
         let fd = open(path, O_WRONLY | O_APPEND | O_CREAT | O_NOFOLLOW, mode_t(0o600))
         guard fd >= 0 else { return false }
