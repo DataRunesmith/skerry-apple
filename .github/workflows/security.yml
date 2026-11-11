@@ -43,6 +43,7 @@ jobs:
           SEMGREP_SEND_METRICS: "off"
         run: semgrep scan --config p/default --sarif --output semgrep.sarif .
       - name: Preserve Semgrep SARIF
+        id: semgrep_artifact
         if: ${{ always() && steps.semgrep_scan.outcome == 'success' && hashFiles('semgrep.sarif') != '' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -51,7 +52,7 @@ jobs:
           if-no-files-found: error
           retention-days: 1
       - name: Summarize semgrep findings when SARIF upload is unavailable
-        if: ${{ !cancelled() && hashFiles('semgrep.sarif') != '' && (steps.semgrep_scan.outcome == 'failure' || (success() && steps.semgrep_scan.outcome == 'success' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true)) }}
+        if: ${{ !cancelled() && hashFiles('semgrep.sarif') != '' && (steps.semgrep_scan.outcome == 'failure' || steps.semgrep_artifact.outcome == 'failure' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true)) }}
         env:
           SARIF_FILE: semgrep.sarif
         run: |
