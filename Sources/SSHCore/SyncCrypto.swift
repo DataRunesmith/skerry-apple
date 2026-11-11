@@ -46,6 +46,8 @@ public enum SyncCrypto {
         let salt = randomBytes(saltLength)
         let key = deriveKey(passphrase: passphrase, salt: salt, iterations: iterations)
         let plaintext = try JSONEncoder().encode(state)
+        let maxPlaintext = SyncFileLimits.maxBytes - magic.count - 4 - saltLength - 12 - 16
+        guard plaintext.count <= maxPlaintext else { throw SyncCryptoError.badFormat }
         let sealed = try AES.GCM.seal(plaintext, using: key)
         guard let combined = sealed.combined else { throw SyncCryptoError.badFormat }
 
@@ -58,7 +60,9 @@ public enum SyncCrypto {
 
     public static func open(_ data: Data, passphrase: String) throws -> SyncState {
         let header = magic.count + 4 + saltLength
-        guard data.count > header, Array(data.prefix(magic.count)) == magic else {
+        guard data.count <= SyncFileLimits.maxBytes,
+              data.count > header,
+              Array(data.prefix(magic.count)) == magic else {
             throw SyncCryptoError.badFormat
         }
         let bytes = Array(data)
