@@ -287,3 +287,6 @@ DerivedData/
 *.xcodeproj/
 xcuserdata/
 fastlane/report.xml
+
+# Local Claude Code statusline script, kept outside the repository
+statusline.sh
