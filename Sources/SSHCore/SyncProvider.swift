@@ -1,4 +1,9 @@
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
 /// Tak på hur stor en synkfil får vara innan den läses in i minnet.
 ///
@@ -17,16 +22,42 @@ public enum SyncFileLimits {
 
     /// Preserve a shared sync-file symlink and atomically update its regular target.
     static func write(_ data: Data, to path: String) throws {
-        let fm = FileManager.default
-        var destination = path
-        if (try? fm.destinationOfSymbolicLink(atPath: path)) != nil {
-            destination = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
-            let attributes = try fm.attributesOfItem(atPath: destination)
-            guard attributes[.type] as? FileAttributeType == .typeRegular else {
+        let parent = try PrivateFile.openParent(path)
+        defer { _ = close(parent) }
+        try write(data, parent: parent, name: (path as NSString).lastPathComponent, remainingLinks: 40)
+    }
+
+    private static func write(_ data: Data, parent: Int32, name: String, remainingLinks: Int) throws {
+        var info = stat()
+        if fstatat(parent, name, &info, AT_SYMLINK_NOFOLLOW) == 0,
+           (info.st_mode & mode_t(S_IFMT)) == mode_t(S_IFLNK) {
+            var directory = stat()
+            guard remainingLinks > 0, fstat(parent, &directory) == 0,
+                  directory.st_uid == geteuid(), directory.st_mode & 0o022 == 0 else {
+                throw CocoaError(.fileWriteNoPermission)
+            }
+            var buffer = [CChar](repeating: 0, count: 4096)
+            let count = readlinkat(parent, name, &buffer, buffer.count)
+            guard count > 0, count < buffer.count else { throw CocoaError(.fileWriteInvalidFileName) }
+            let target = String(decoding: buffer.prefix(count).map { UInt8(bitPattern: $0) }, as: UTF8.self)
+            let targetDirectory = (target as NSString).deletingLastPathComponent
+            // openat anchors relative targets to the pinned link directory, even
+            // if its former pathname has been replaced since validation.
+            let targetParent = openat(parent, targetDirectory.isEmpty ? "." : targetDirectory,
+                                      O_RDONLY | O_DIRECTORY | O_CLOEXEC)
+            guard targetParent >= 0 else { throw CocoaError(.fileWriteInvalidFileName) }
+            defer { _ = close(targetParent) }
+            let targetName = (target as NSString).lastPathComponent
+            var targetInfo = stat()
+            guard fstatat(targetParent, targetName, &targetInfo, AT_SYMLINK_NOFOLLOW) == 0,
+                  (targetInfo.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG) ||
+                  (targetInfo.st_mode & mode_t(S_IFMT)) == mode_t(S_IFLNK) else {
                 throw CocoaError(.fileWriteInvalidFileName)
             }
+            try write(data, parent: targetParent, name: targetName, remainingLinks: remainingLinks - 1)
+        } else {
+            try PrivateFile.write(data, parent: parent, name: name)
         }
-        try PrivateFile.write(data, to: destination)
     }
 
     /// Läser en fil men vägrar mer än ``maxBytes``.

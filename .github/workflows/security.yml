@@ -126,10 +126,16 @@ jobs:
           errors = results.get("errors") or []
           if errors or plist_failures.messages:
               for error in errors:
-                  print(f"MobSF scan error: {json.dumps(error, ensure_ascii=True)}", file=sys.stderr)
+                  print("MobSF scan error (details omitted).", file=sys.stderr)
               for message in plist_failures.messages:
-                  print(f"MobSF plist error: {json.dumps(message, ensure_ascii=True)}", file=sys.stderr)
-              print("Partial MobSF findings: " + json.dumps(results.get("results", {}), ensure_ascii=True))
+                  print("MobSF plist error (details omitted).", file=sys.stderr)
+              findings = [
+                  {"rule_id": rule, "file_path": location.get("file_path"),
+                   "match_lines": location.get("match_lines", [])}
+                  for rule, finding in results.get("results", {}).items()
+                  for location in finding.get("files", [])
+              ]
+              print("Partial MobSF findings: " + json.dumps(findings, ensure_ascii=True))
               sys.exit(1)
 
           sarif.sarif_output("mobsfscan.sarif", results, __version__, ["."])

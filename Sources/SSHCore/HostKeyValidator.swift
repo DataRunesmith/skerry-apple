@@ -9,7 +9,12 @@ import NIOSSH
 // Configuration is immutable, KnownHosts serializes its state with a lock, and
 // the failure callback is invoked only on the validation promise's event loop.
 final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unchecked Sendable {
-    private static let ioQueue = DispatchQueue(label: "skerry.known-hosts.io")
+    private static let ioQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "skerry.known-hosts.io"
+        queue.maxConcurrentOperationCount = 4
+        return queue
+    }()
     private let host: String
     private let port: Int
     private let store: KnownHosts
@@ -29,7 +34,7 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
         validationCompletePromise: EventLoopPromise<Void>
     ) {
         let keyString = String(openSSHPublicKey: hostKey)
-        Self.ioQueue.async { [self] in
+        Self.ioQueue.addOperation { [self] in
             let verdict = store.check(host: host, port: port, keyString: keyString)
             validationCompletePromise.futureResult.eventLoop.execute { [self] in
                 switch verdict {

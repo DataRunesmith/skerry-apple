@@ -124,12 +124,31 @@ public final class KnownHosts {
         let parent = Self.openParent(path, create: true)
         guard parent >= 0 else { return false }
         defer { _ = close(parent) }
+        // A stable sidecar lock serializes read/replace across store instances
+        // and processes; locking the replaced inode would lose that protection.
+        let lockFD = openat(parent, (path as NSString).lastPathComponent + ".lock",
+                            O_RDWR | O_CREAT | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC, mode_t(0o600))
+        guard lockFD >= 0 else { return false }
+        defer { _ = close(lockFD) }
+        var lockInfo = stat()
+        guard fstat(lockFD, &lockInfo) == 0,
+              (lockInfo.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG),
+              flock(lockFD, LOCK_EX) == 0 else { return false }
+        defer { _ = flock(lockFD, LOCK_UN) }
+        let bytes = Array("\(id) \(keyString)\n".utf8)
+        guard bytes.count <= 4 * 1024 * 1024 else { return false }
         let fd = openat(parent, (path as NSString).lastPathComponent,
-                        O_WRONLY | O_APPEND | O_CREAT | O_NOFOLLOW | O_NONBLOCK, mode_t(0o600))
-        guard fd >= 0 else { return false }
+                        O_RDONLY | O_NOFOLLOW | O_NONBLOCK, mode_t(0o600))
+        if fd < 0 {
+            guard errno == ENOENT else { return false }
+            do {
+                try PrivateFile.write(Data("\(id) \(keyString)\n".utf8), parent: parent,
+                                      name: (path as NSString).lastPathComponent)
+                return true
+            } catch { return false }
+        }
         defer { _ = close(fd) }
 
-        let bytes = Array("\(id) \(keyString)\n".utf8)
         var info = stat()
         guard fstat(fd, &info) == 0,
               (info.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG),
@@ -139,18 +158,18 @@ public final class KnownHosts {
         else {
             return false
         }
-        var offset = 0
-        while offset < bytes.count {
-            let written = bytes.withUnsafeBytes { raw in
-                write(fd, raw.baseAddress!.advanced(by: offset), bytes.count - offset)
-            }
-            if written < 0 {
-                if errno == EINTR { continue }
-                return false
-            }
-            if written == 0 { return false }
-            offset += written
-        }
-        return fsync(fd) == 0
+        // Build a replacement before publishing: short writes and fsync failures
+        // affect only the temporary file, never the original trust records.
+        var contents = Data()
+        let file = FileHandle(fileDescriptor: fd, closeOnDealloc: false)
+        do {
+            contents = try file.read(upToCount: 4 * 1024 * 1024 + 1) ?? Data()
+            guard contents.count + bytes.count <= 4 * 1024 * 1024 else { return false }
+            if !contents.isEmpty && contents.last != 10 { contents.append(10) }
+            contents.append(contentsOf: bytes)
+            guard contents.count <= 4 * 1024 * 1024 else { return false }
+            try PrivateFile.write(contents, parent: parent, name: (path as NSString).lastPathComponent)
+            return true
+        } catch { return false }
     }
 }

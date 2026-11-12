@@ -43,6 +43,7 @@ public enum ExternalBinaryFetcher {
         binaryName: String,
         session: URLSession = .shared
     ) async throws -> URL {
+        try Task.checkCancellation()
         guard
             !binaryName.isEmpty,
             binaryName != ".",
@@ -92,13 +93,17 @@ public enum ExternalBinaryFetcher {
 
         let data: Data
         do {
-            data = try await BoundedBinaryDownload.download(url, configuration: session.configuration)
+            data = try await BoundedBinaryDownload.download(url, suppliedSession: session)
+        } catch is CancellationError {
+            throw CancellationError()
         } catch let error as ExternalBinaryError {
             throw error
         } catch {
-            throw ExternalBinaryError.downloadFailed("\(error)")
+            if Task.isCancelled { throw CancellationError() }
+            throw ExternalBinaryError.downloadFailed("network request failed")
         }
 
+        try Task.checkCancellation()
         let actual = sha256Hex(data)
         guard actual == expected else {
             throw ExternalBinaryError.checksumMismatch(expected: expected, actual: actual)
@@ -110,8 +115,11 @@ public enum ExternalBinaryFetcher {
             // en process som läser `destination` mitt under en nedladdning
             // ska aldrig kunna se en halvskriven fil.
             let tmp = cacheDir.appendingPathComponent(".\(binaryName).\(UUID().uuidString).tmp")
+            defer { try? FileManager.default.removeItem(at: tmp) }
+            try Task.checkCancellation()
             try data.write(to: tmp)
             try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tmp.path)
+            try Task.checkCancellation()
             _ = try? FileManager.default.removeItem(at: destination)
             try FileManager.default.moveItem(at: tmp, to: destination)
         } catch {
@@ -130,11 +138,11 @@ public enum ExternalBinaryFetcher {
 // while enforcing redirect and memory limits before URLSession follows or buffers data.
 final class BoundedBinaryDownload: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     private static let limit = 256 * 1024 * 1024
-    private let sourceURL: URL
+    private let suppliedSession: URLSession?
     private var data = Data()
 
-    init(url: URL) {
-        self.sourceURL = url
+    init(url: URL, suppliedSession: URLSession? = nil) {
+        self.suppliedSession = suppliedSession
         super.init()
     }
     private var failure: Error?
@@ -144,15 +152,80 @@ final class BoundedBinaryDownload: NSObject, URLSessionDataDelegate, @unchecked 
         url.scheme?.lowercased() == "https" && url.host != nil && url.user == nil && url.password == nil
     }
 
-    static func download(_ url: URL, configuration: URLSessionConfiguration) async throws -> Data {
-        let delegate = BoundedBinaryDownload(url: url)
+    private let cancellationLock = NSLock()
+    private var cancelled = false
+    private var activeTask: URLSessionDataTask?
+
+    private func start(_ task: URLSessionDataTask) {
+        cancellationLock.lock()
+        activeTask = task
+        if cancelled { task.cancel() }
+        task.resume()
+        cancellationLock.unlock()
+    }
+
+    private func cancel() {
+        cancellationLock.lock()
+        cancelled = true
+        activeTask?.cancel()
+        cancellationLock.unlock()
+    }
+
+    static func download(_ url: URL, suppliedSession: URLSession) async throws -> Data {
+        let delegate = BoundedBinaryDownload(url: url, suppliedSession: suppliedSession)
+        // The supplied delegate queue preserves the caller's challenge execution context.
         let queue = OperationQueue()
         queue.maxConcurrentOperationCount = 1
-        let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: queue)
+        let session = URLSession(configuration: suppliedSession.configuration, delegate: delegate, delegateQueue: queue)
         defer { session.invalidateAndCancel() }
-        return try await withCheckedThrowingContinuation { continuation in
-            delegate.continuation = continuation
-            session.dataTask(with: url).resume()
+        return try await withTaskCancellationHandler(operation: {
+            try Task.checkCancellation()
+            let data: Data = try await withCheckedThrowingContinuation { continuation in
+                delegate.continuation = continuation
+                delegate.start(session.dataTask(with: url))
+            }
+            try Task.checkCancellation()
+            return data
+        }, onCancel: { delegate.cancel() })
+    }
+
+    // URLSession.delegate is the supported accessor for both delegate protocols.
+    // Forward on the supplied queue, retaining its session identity for pinning policies.
+    func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge,
+                    completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        guard let original = suppliedSession, let handler = original.delegate else {
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
+        original.delegateQueue.addOperation {
+            #if canImport(ObjectiveC)
+            guard handler.responds(to: #selector(URLSessionDelegate.urlSession(_:didReceive:completionHandler:))) else {
+                completionHandler(.performDefaultHandling, nil)
+                return
+            }
+            handler.urlSession?(original, didReceive: challenge, completionHandler: completionHandler)
+            #else
+            handler.urlSession(original, didReceive: challenge, completionHandler: completionHandler)
+            #endif
+        }
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didReceive challenge: URLAuthenticationChallenge,
+                    completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        guard let original = suppliedSession, let handler = original.delegate as? URLSessionTaskDelegate else {
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
+        original.delegateQueue.addOperation {
+            #if canImport(ObjectiveC)
+            guard handler.responds(to: #selector(URLSessionTaskDelegate.urlSession(_:task:didReceive:completionHandler:))) else {
+                completionHandler(.performDefaultHandling, nil)
+                return
+            }
+            handler.urlSession?(original, task: task, didReceive: challenge, completionHandler: completionHandler)
+            #else
+            handler.urlSession(original, task: task, didReceive: challenge, completionHandler: completionHandler)
+            #endif
         }
     }
 
@@ -175,7 +248,7 @@ final class BoundedBinaryDownload: NSObject, URLSessionDataDelegate, @unchecked 
         guard let http = response as? HTTPURLResponse,
               (200...299).contains(http.statusCode),
               let url = http.url, Self.allowed(url) else {
-            failure = ExternalBinaryError.downloadFailed("HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1) or insecure redirect for \(sourceURL.absoluteString)")
+            failure = ExternalBinaryError.downloadFailed("HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1) or insecure redirect")
             completionHandler(.cancel)
             return
         }
