@@ -26,6 +26,17 @@ final class ReviewHardeningTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: parent.appendingPathComponent("state").path))
     }
 
+    func testWriteThroughSystemSymlinkedTempPath() throws {
+        // /tmp is a symlink on Darwin (-> /private/tmp); the pinned walk must
+        // use the physical path and still succeed.
+        let directory = "/tmp/skerry-\(UUID().uuidString)"
+        try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: directory) }
+        let path = directory + "/secret"
+        try PrivateFile.write(Data("ok".utf8), to: path)
+        XCTAssertEqual(try Data(contentsOf: URL(fileURLWithPath: path)), Data("ok".utf8))
+    }
+
     func testUntrustedSyncLinkCannotOverwriteTarget() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
