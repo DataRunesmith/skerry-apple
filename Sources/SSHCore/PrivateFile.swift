@@ -44,6 +44,8 @@ enum PrivateFile {
         try file.synchronize()
         try file.close()
         guard renameat(parent, temporaryName, parent, name) == 0 else { throw posixError() }
+        // Make the directory-entry change durable, and report a failure to do so.
+        guard fsync(parent) == 0 else { throw posixError() }
     }
 
     private static func posixError() -> NSError {

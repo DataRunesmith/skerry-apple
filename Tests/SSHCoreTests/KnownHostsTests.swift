@@ -50,6 +50,18 @@ final class KnownHostsTests: XCTestCase {
             "srv:22 ssh-ed25519 AAAAattacker\n")
     }
 
+    func testSecondStoreRejectsKeyPersistedByAnotherInstance() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory()).resolvingSymlinksInPath().path
+            + "/skerry-kh-race-\(UUID().uuidString)"
+        defer { try? FileManager.default.removeItem(atPath: root) }
+        let path = root + "/known_hosts"
+        let first = KnownHosts(path: path)
+        let second = KnownHosts(path: path) // Both load an empty store.
+        XCTAssertEqual(first.check(host: "srv", port: 22, keyString: "keyA"), .learned)
+        XCTAssertEqual(second.check(host: "srv", port: 22, keyString: "keyB"), .changed(stored: "keyA"))
+        XCTAssertEqual(try String(contentsOfFile: path, encoding: .utf8), "srv:22 keyA\n")
+    }
+
     func testSymlinkAncestorFailsClosed() throws {
         let root = (URL(fileURLWithPath: NSTemporaryDirectory()).resolvingSymlinksInPath().path + "/") + "skerry-kh-ancestor-\(UUID().uuidString)"
         defer { try? FileManager.default.removeItem(atPath: root) }

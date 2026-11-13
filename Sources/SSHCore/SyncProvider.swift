@@ -39,14 +39,20 @@ public enum SyncFileLimits {
             var buffer = [CChar](repeating: 0, count: 4096)
             let count = readlinkat(parent, name, &buffer, buffer.count)
             guard count > 0, count < buffer.count else { throw CocoaError(.fileWriteInvalidFileName) }
-            let target = String(decoding: buffer.prefix(count).map { UInt8(bitPattern: $0) }, as: UTF8.self)
+            guard let target = String(bytes: buffer.prefix(count).map { UInt8(bitPattern: $0) }, encoding: .utf8) else {
+                throw CocoaError(.fileWriteInvalidFileName) // Never repair invalid UTF-8 into another name.
+            }
             let targetDirectory = (target as NSString).deletingLastPathComponent
-            // openat anchors relative targets to the pinned link directory, even
-            // if its former pathname has been replaced since validation.
-            let targetParent = openat(parent, targetDirectory.isEmpty ? "." : targetDirectory,
-                                      O_RDONLY | O_DIRECTORY | O_CLOEXEC)
-            guard targetParent >= 0 else { throw CocoaError(.fileWriteInvalidFileName) }
+            // Walk the target directory one component at a time without following
+            // links, anchored at the pinned link directory (or "/" for absolute targets).
+            let targetParent = try openDirectoryNoFollow(from: parent, path: targetDirectory)
             defer { _ = close(targetParent) }
+            // The resolved target directory must itself be trusted.
+            var targetDirInfo = stat()
+            guard fstat(targetParent, &targetDirInfo) == 0,
+                  targetDirInfo.st_uid == geteuid(), targetDirInfo.st_mode & 0o022 == 0 else {
+                throw CocoaError(.fileWriteNoPermission)
+            }
             let targetName = (target as NSString).lastPathComponent
             var targetInfo = stat()
             guard fstatat(targetParent, targetName, &targetInfo, AT_SYMLINK_NOFOLLOW) == 0,
@@ -58,6 +64,29 @@ public enum SyncFileLimits {
         } else {
             try PrivateFile.write(data, parent: parent, name: name)
         }
+    }
+
+    /// Opens `path` relative to `base` (or "/" when absolute), refusing symlinks in every walked component.
+    private static func openDirectoryNoFollow(from base: Int32, path: String) throws -> Int32 {
+        var fd: Int32
+        var components = path
+        if path.hasPrefix("/") {
+            // Absolute targets: resolve system-level links such as /var once (as
+            // PrivateFile.openParent does), then walk without following links.
+            // The resolved directory is authorized by the caller before any write.
+            components = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+            fd = open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC)
+        } else {
+            fd = dup(base)
+        }
+        guard fd >= 0 else { throw CocoaError(.fileWriteInvalidFileName) }
+        for part in components.split(separator: "/") where part != "." {
+            let next = openat(fd, String(part), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+            _ = close(fd)
+            guard next >= 0 else { throw CocoaError(.fileWriteInvalidFileName) }
+            fd = next
+        }
+        return fd
     }
 
     /// Läser en fil men vägrar mer än ``maxBytes``.

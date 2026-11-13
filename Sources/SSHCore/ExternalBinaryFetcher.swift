@@ -122,6 +122,8 @@ public enum ExternalBinaryFetcher {
             try Task.checkCancellation()
             _ = try? FileManager.default.removeItem(at: destination)
             try FileManager.default.moveItem(at: tmp, to: destination)
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             throw ExternalBinaryError.cacheWriteFailed("\(error)")
         }

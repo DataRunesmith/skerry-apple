@@ -90,14 +90,20 @@ public final class KnownHosts {
             data.append(contentsOf: buffer.prefix(count))
             if data.count > 4 * 1024 * 1024 { return ([:], true) }
         }
-        guard let text = String(data: data, encoding: .utf8) else { return ([:], true) }
+        guard let entries = parseEntries(data) else { return ([:], true) }
+        return (entries, false)
+    }
+
+    /// Parses trust records; the last record for a host wins. Returns nil for invalid UTF-8.
+    private static func parseEntries(_ data: Data) -> [String: String]? {
+        guard let text = String(data: data, encoding: .utf8) else { return nil }
         var out: [String: String] = [:]
         for line in text.split(whereSeparator: { $0 == "\n" || $0 == "\r" }) {
             let parts = line.split(separator: " ", maxSplits: 1)
             guard parts.count == 2 else { continue }
             out[String(parts[0])] = String(parts[1])
         }
-        return (out, false)
+        return out
     }
 
     /// Avgör hur en presenterad nyckel förhåller sig till vad vi sett tidigare.
@@ -109,43 +115,51 @@ public final class KnownHosts {
             if let stored = entries[id] {
                 return stored == keyString ? .trusted : .changed(stored: stored)
             }
-            guard append(id: id, keyString: keyString) else {
+            switch append(id: id, keyString: keyString) {
+            case .failed:
                 return .storageFailure
+            case .existing(let stored):
+                // Another store instance or process persisted this host first.
+                entries[id] = stored
+                return stored == keyString ? .trusted : .changed(stored: stored)
+            case .appended:
+                entries[id] = keyString
+                return .learned
             }
-            entries[id] = keyString
-            return .learned
         }
     }
 
     // Called with the lock held. A failed write must fail closed: learning a
     // key only in memory would silently disable TOFU after the next restart.
-    private func append(id: String, keyString: String) -> Bool {
-        guard let path else { return true } // Explicit in-memory mode for tests.
+    private enum AppendResult { case appended, existing(String), failed }
+
+    private func append(id: String, keyString: String) -> AppendResult {
+        guard let path else { return .appended } // Explicit in-memory mode for tests.
         let parent = Self.openParent(path, create: true)
-        guard parent >= 0 else { return false }
+        guard parent >= 0 else { return .failed }
         defer { _ = close(parent) }
         // A stable sidecar lock serializes read/replace across store instances
         // and processes; locking the replaced inode would lose that protection.
         let lockFD = openat(parent, (path as NSString).lastPathComponent + ".lock",
                             O_RDWR | O_CREAT | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC, mode_t(0o600))
-        guard lockFD >= 0 else { return false }
+        guard lockFD >= 0 else { return .failed }
         defer { _ = close(lockFD) }
         var lockInfo = stat()
         guard fstat(lockFD, &lockInfo) == 0,
               (lockInfo.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG),
-              flock(lockFD, LOCK_EX) == 0 else { return false }
+              flock(lockFD, LOCK_EX) == 0 else { return .failed }
         defer { _ = flock(lockFD, LOCK_UN) }
         let bytes = Array("\(id) \(keyString)\n".utf8)
-        guard bytes.count <= 4 * 1024 * 1024 else { return false }
+        guard bytes.count <= 4 * 1024 * 1024 else { return .failed }
         let fd = openat(parent, (path as NSString).lastPathComponent,
                         O_RDONLY | O_NOFOLLOW | O_NONBLOCK, mode_t(0o600))
         if fd < 0 {
-            guard errno == ENOENT else { return false }
+            guard errno == ENOENT else { return .failed }
             do {
                 try PrivateFile.write(Data("\(id) \(keyString)\n".utf8), parent: parent,
                                       name: (path as NSString).lastPathComponent)
-                return true
-            } catch { return false }
+                return .appended
+            } catch { return .failed }
         }
         defer { _ = close(fd) }
 
@@ -156,7 +170,7 @@ public final class KnownHosts {
               info.st_size + off_t(bytes.count) <= 4 * 1024 * 1024,
               fchmod(fd, 0o600) == 0
         else {
-            return false
+            return .failed
         }
         // Build a replacement before publishing: short writes and fsync failures
         // affect only the temporary file, never the original trust records.
@@ -164,12 +178,16 @@ public final class KnownHosts {
         let file = FileHandle(fileDescriptor: fd, closeOnDealloc: false)
         do {
             contents = try file.read(upToCount: 4 * 1024 * 1024 + 1) ?? Data()
-            guard contents.count + bytes.count <= 4 * 1024 * 1024 else { return false }
+            // Recheck the persisted record under the sidecar lock: the cached map
+            // may predate a write by another store instance or process.
+            guard let persisted = Self.parseEntries(contents) else { return .failed }
+            if let stored = persisted[id] { return .existing(stored) }
+            guard contents.count + bytes.count <= 4 * 1024 * 1024 else { return .failed }
             if !contents.isEmpty && contents.last != 10 { contents.append(10) }
             contents.append(contentsOf: bytes)
-            guard contents.count <= 4 * 1024 * 1024 else { return false }
+            guard contents.count <= 4 * 1024 * 1024 else { return .failed }
             try PrivateFile.write(contents, parent: parent, name: (path as NSString).lastPathComponent)
-            return true
-        } catch { return false }
+            return .appended
+        } catch { return .failed }
     }
 }
