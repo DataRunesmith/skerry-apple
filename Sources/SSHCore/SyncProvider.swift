@@ -74,7 +74,7 @@ public enum SyncFileLimits {
             // Absolute targets: resolve system-level links such as /var once (as
             // PrivateFile.openParent does), then walk without following links.
             // The resolved directory is authorized by the caller before any write.
-            components = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+            components = try PrivateFile.canonicalDirectory(path)
             fd = open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC)
         } else {
             fd = dup(base)

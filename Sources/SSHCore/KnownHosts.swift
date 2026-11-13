@@ -36,8 +36,19 @@ public final class KnownHosts {
         self.storageUnavailable = loaded.failed
     }
 
+    // The app home directory may sit below a system symlink (`/var` ->
+    // `/private/var` on iOS and tvOS devices). Canonicalize only that trusted
+    // prefix; every component below it is still opened with O_NOFOLLOW.
+    private static func canonicalHomePrefix(_ path: String) -> String {
+        let home = NSHomeDirectory()
+        guard path == home || path.hasPrefix(home + "/"),
+              let resolved = try? PrivateFile.canonicalDirectory(home) else { return path }
+        return resolved + path.dropFirst(home.count)
+    }
+
     // Keep every lookup anchored to an open directory; reject symlink ancestors.
     private static func openParent(_ path: String, create: Bool) -> Int32 {
+        let path = canonicalHomePrefix(path)
         let parts = path.split(separator: "/").map(String.init)
         guard let name = parts.last, name != ".", name != ".." else { return -1 }
         var parent = open(path.hasPrefix("/") ? "/" : ".", O_RDONLY | O_DIRECTORY)

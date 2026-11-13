@@ -10,8 +10,8 @@ enum PrivateFile {
     /// Pin the parent before creating or renaming anything. Ancestor symlinks are
     /// resolved once, then every component is opened without following links.
     static func openParent(_ path: String) throws -> Int32 {
-        let directory = URL(fileURLWithPath: path).deletingLastPathComponent()
-            .resolvingSymlinksInPath().path
+        let directory = try canonicalDirectory(
+            URL(fileURLWithPath: path).deletingLastPathComponent().path)
         var fd = open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC)
         guard fd >= 0 else { throw posixError() }
         for part in directory.split(separator: "/") {
@@ -22,6 +22,15 @@ enum PrivateFile {
             fd = next
         }
         return fd
+    }
+
+    /// Physical path of an existing directory (`realpath`). Unlike
+    /// `resolvingSymlinksInPath`, this keeps `/private` on Darwin, so every
+    /// component of the result is a real directory that `O_NOFOLLOW` accepts.
+    static func canonicalDirectory(_ path: String) throws -> String {
+        guard let resolved = realpath(path, nil) else { throw posixError() }
+        defer { free(resolved) }
+        return String(cString: resolved)
     }
 
     static func write(_ data: Data, to path: String) throws {
