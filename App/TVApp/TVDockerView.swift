@@ -49,7 +49,7 @@ final class TVDockerModel: ObservableObject {
     // `invalidateSessionIfNeeded` och `act()`s felrapportering.
     private static func isConnectionLevel(_ error: SSHError) -> Bool {
         switch error {
-        case .connectionFailed, .authenticationFailed, .channelFailed, .hostKeyRejected:
+        case .connectionFailed, .authenticationFailed, .channelFailed, .hostKeyRejected, .knownHostsUnavailable:
             return true
         case .remoteExit:
             return false

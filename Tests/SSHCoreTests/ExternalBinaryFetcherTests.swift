@@ -89,7 +89,7 @@ final class ExternalBinaryFetcherTests: XCTestCase {
         let wrongChecksum = String(repeating: "0", count: 64)
         do {
             _ = try await fetchSample(cacheDir: cacheDir, expectedSHA256: wrongChecksum)
-            XCTFail("förväntade checksumMismatch")
+            XCTFail("expected checksumMismatch")
         } catch ExternalBinaryError.checksumMismatch(let expected, let actual) {
             XCTAssertEqual(expected, wrongChecksum)
             XCTAssertEqual(actual, sampleSHA256)
@@ -110,5 +110,108 @@ final class ExternalBinaryFetcherTests: XCTestCase {
 
         let data = try Data(contentsOf: path)
         XCTAssertEqual(ExternalBinaryFetcher.sha256Hex(data), sampleSHA256)
+    }
+
+}
+
+final class ExternalBinaryFetcherValidationTests: XCTestCase {
+    private let sampleSHA256 = "fb5a425bd3b3cd6071a3a9aff9909a859e7c1158d54d32e07658398cd67eb6a0"
+
+    private func freshCacheDir() -> URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("skerry-binfetch-test-\(UUID().uuidString)")
+    }
+
+    func testRejectsPathTraversalBeforeNetworkOrFilesystemChanges() async throws {
+        let cacheDir = freshCacheDir()
+        defer { try? FileManager.default.removeItem(at: cacheDir) }
+        let unreachable = URL(string: "https://127.0.0.1.invalid/never-fetch")!
+        do {
+            _ = try await ExternalBinaryFetcher.fetch(
+                url: unreachable,
+                expectedSHA256: sampleSHA256,
+                cacheDir: cacheDir,
+                binaryName: "../outside")
+            XCTFail("expected invalidBinaryName")
+        } catch ExternalBinaryError.invalidBinaryName {
+            // Expected: reject before creating the cache directory or making a request.
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: cacheDir.path))
+    }
+
+    func testRejectsMalformedChecksumBeforeNetworkOrFilesystemChanges() async throws {
+        let cacheDir = freshCacheDir()
+        defer { try? FileManager.default.removeItem(at: cacheDir) }
+        let unreachable = URL(string: "https://127.0.0.1.invalid/never-fetch")!
+        do {
+            _ = try await ExternalBinaryFetcher.fetch(
+                url: unreachable,
+                expectedSHA256: "not-a-sha256",
+                cacheDir: cacheDir,
+                binaryName: "sample")
+            XCTFail("expected invalidChecksum")
+        } catch ExternalBinaryError.invalidChecksum {
+            // Expected: reject before creating the cache directory or making a request.
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: cacheDir.path))
+    }
+
+}
+
+private final class BinaryResponseProtocol: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let oversized = request.url!.path == "/oversized"
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil,
+            headerFields: oversized ? ["Content-Length": "268435457"] : [:])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        if request.url!.path == "/stream-oversized" {
+            let chunk = Data(repeating: 0, count: 1024 * 1024)
+            for _ in 0..<257 { client?.urlProtocol(self, didLoad: chunk) }
+        } else if !oversized {
+            client?.urlProtocol(self, didLoad: Data("first".utf8))
+            client?.urlProtocol(self, didLoad: Data("second".utf8))
+        }
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+final class ExternalBinaryStreamingTests: XCTestCase {
+    func testRedirectDestinationsAreValidatedBeforeFollowing() throws {
+        let source = URL(string: "https://example.invalid/source")!
+        let response = HTTPURLResponse(url: source, statusCode: 302, httpVersion: nil, headerFields: nil)!
+        let session = URLSession(configuration: .ephemeral)
+        defer { session.invalidateAndCancel() }
+        for destination in ["http://example.invalid/file", "https://user:password@example.invalid/file", "https://example.invalid/file"] {
+            let delegate = BoundedBinaryDownload(url: source)
+            let request = URLRequest(url: URL(string: destination)!)
+            let task = session.dataTask(with: source)
+            var followed: URLRequest?
+            delegate.urlSession(session, task: task, willPerformHTTPRedirection: response,
+                newRequest: request, completionHandler: { followed = $0 })
+            XCTAssertEqual(followed != nil, destination == "https://example.invalid/file")
+            task.cancel()
+        }
+    }
+
+    func testInjectedSessionStreamsAndRejectsOversizedContentLength() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [BinaryResponseProtocol.self]
+        let session = URLSession(configuration: config)
+        defer { session.invalidateAndCancel() }
+        let cache = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: cache) }
+        let expected = ExternalBinaryFetcher.sha256Hex(Data("firstsecond".utf8))
+        let path = try await ExternalBinaryFetcher.fetch(url: URL(string: "https://example.invalid/chunks")!,
+            expectedSHA256: expected, cacheDir: cache, binaryName: "chunks", session: session)
+        XCTAssertEqual(try Data(contentsOf: path), Data("firstsecond".utf8))
+        for endpoint in ["oversized", "stream-oversized"] {
+            do {
+                _ = try await ExternalBinaryFetcher.fetch(url: URL(string: "https://example.invalid/\(endpoint)")!,
+                    expectedSHA256: expected, cacheDir: cache, binaryName: "oversized", session: session)
+                XCTFail("expected downloadTooLarge")
+            } catch ExternalBinaryError.downloadTooLarge {}
+        }
     }
 }

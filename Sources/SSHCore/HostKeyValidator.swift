@@ -6,19 +6,27 @@ import NIOSSH
 /// TOFU-validering av värdnyckeln mot en `KnownHosts`-lagring. Okänd värd lärs
 /// in; oförändrad accepteras; ändrad avvisas (MITM-skydd). Ersätter den tidigare
 /// "acceptera allt"-stubben.
-final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate {
+// Configuration is immutable, KnownHosts serializes its state with a lock, and
+// the failure callback is invoked only on the validation promise's event loop.
+final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unchecked Sendable {
+    private static let ioQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.name = "skerry.known-hosts.io"
+        queue.maxConcurrentOperationCount = 4
+        return queue
+    }()
     private let host: String
     private let port: Int
     private let store: KnownHosts
     // NIOSSH stänger inte anslutningen självt när vi avvisar — sessionen får
     // signalen härigenom så pågående anrop inte hänger.
-    private let onReject: (HostKeyInfo) -> Void
+    private let onFailure: (SSHError) -> Void
 
-    init(host: String, port: Int, store: KnownHosts, onReject: @escaping (HostKeyInfo) -> Void) {
+    init(host: String, port: Int, store: KnownHosts, onFailure: @escaping (SSHError) -> Void) {
         self.host = host
         self.port = port
         self.store = store
-        self.onReject = onReject
+        self.onFailure = onFailure
     }
 
     func validateHostKey(
@@ -26,13 +34,23 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate {
         validationCompletePromise: EventLoopPromise<Void>
     ) {
         let keyString = String(openSSHPublicKey: hostKey)
-        switch store.check(host: host, port: port, keyString: keyString) {
-        case .trusted, .learned:
-            validationCompletePromise.succeed(())
-        case .changed:
-            let info = fingerprint(of: hostKey)
-            onReject(info)
-            validationCompletePromise.fail(SSHError.hostKeyRejected(info))
+        Self.ioQueue.addOperation { [self] in
+            let verdict = store.check(host: host, port: port, keyString: keyString)
+            validationCompletePromise.futureResult.eventLoop.execute { [self] in
+                switch verdict {
+                case .trusted, .learned:
+                    validationCompletePromise.succeed(())
+                case .changed:
+                    let info = fingerprint(of: hostKey)
+                    let error = SSHError.hostKeyRejected(info)
+                    onFailure(error)
+                    validationCompletePromise.fail(error)
+                case .storageFailure:
+                    let error = SSHError.knownHostsUnavailable
+                    onFailure(error)
+                    validationCompletePromise.fail(error)
+                }
+            }
         }
     }
 }

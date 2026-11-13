@@ -77,5 +77,6 @@ public enum SSHError: Error, Sendable {
     case authenticationFailed
     case channelFailed(String)
     case hostKeyRejected(HostKeyInfo)
+    case knownHostsUnavailable
     case remoteExit(status: Int)
 }

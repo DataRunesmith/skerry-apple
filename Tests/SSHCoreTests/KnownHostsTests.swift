@@ -15,7 +15,7 @@ final class KnownHostsTests: XCTestCase {
     }
 
     func testFilePersistsAndReloads() throws {
-        let dir = NSTemporaryDirectory() + "skerry-kh-\(ProcessInfo.processInfo.processIdentifier)"
+        let dir = (URL(fileURLWithPath: NSTemporaryDirectory()).resolvingSymlinksInPath().path + "/") + "skerry-kh-\(ProcessInfo.processInfo.processIdentifier)"
         let path = dir + "/known_hosts"
         defer { try? FileManager.default.removeItem(atPath: dir) }
 
@@ -27,6 +27,60 @@ final class KnownHostsTests: XCTestCase {
         XCTAssertEqual(s2.check(host: "srv", port: 22, keyString: "ssh-ed25519 AAAAx"), .trusted)
         XCTAssertEqual(s2.check(host: "srv", port: 22, keyString: "ssh-ed25519 AAAAy"),
                        .changed(stored: "ssh-ed25519 AAAAx"))
+    }
+
+
+    func testSymlinkedKnownHostsFailsClosedInsteadOfTrustingExternalFile() throws {
+        let root = (URL(fileURLWithPath: NSTemporaryDirectory()).resolvingSymlinksInPath().path + "/") + "skerry-kh-link-\(UUID().uuidString)"
+        let directory = root + "/.skerry"
+        let outside = root + "/attacker-controlled"
+        let path = directory + "/known_hosts"
+        defer { try? FileManager.default.removeItem(atPath: root) }
+        try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+        try "srv:22 ssh-ed25519 AAAAattacker\n".write(toFile: outside, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(atPath: path, withDestinationPath: outside)
+
+        let store = KnownHosts(path: path)
+        XCTAssertEqual(
+            store.check(host: "srv", port: 22, keyString: "ssh-ed25519 AAAAattacker"),
+            .storageFailure,
+            "a symlinked trust store must never establish host trust")
+        XCTAssertEqual(
+            try String(contentsOfFile: outside, encoding: .utf8),
+            "srv:22 ssh-ed25519 AAAAattacker\n")
+    }
+
+    func testSecondStoreRejectsKeyPersistedByAnotherInstance() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory()).resolvingSymlinksInPath().path
+            + "/skerry-kh-race-\(UUID().uuidString)"
+        defer { try? FileManager.default.removeItem(atPath: root) }
+        let path = root + "/known_hosts"
+        let first = KnownHosts(path: path)
+        let second = KnownHosts(path: path) // Both load an empty store.
+        XCTAssertEqual(first.check(host: "srv", port: 22, keyString: "keyA"), .learned)
+        XCTAssertEqual(second.check(host: "srv", port: 22, keyString: "keyB"), .changed(stored: "keyA"))
+        XCTAssertEqual(try String(contentsOfFile: path, encoding: .utf8), "srv:22 keyA\n")
+    }
+
+    func testSymlinkAncestorFailsClosed() throws {
+        let root = (URL(fileURLWithPath: NSTemporaryDirectory()).resolvingSymlinksInPath().path + "/") + "skerry-kh-ancestor-\(UUID().uuidString)"
+        defer { try? FileManager.default.removeItem(atPath: root) }
+        try FileManager.default.createDirectory(atPath: root + "/real/child", withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(atPath: root + "/link", withDestinationPath: root + "/real")
+        let store = KnownHosts(path: root + "/link/child/known_hosts")
+        XCTAssertEqual(store.check(host: "srv", port: 22, keyString: "key"), .storageFailure)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root + "/real/child/known_hosts"))
+    }
+
+    func testKnownHostsFileIsOwnerOnly() throws {
+        let dir = (URL(fileURLWithPath: NSTemporaryDirectory()).resolvingSymlinksInPath().path + "/") + "skerry-kh-mode-\(UUID().uuidString)"
+        let path = dir + "/known_hosts"
+        defer { try? FileManager.default.removeItem(atPath: dir) }
+        let store = KnownHosts(path: path)
+        XCTAssertEqual(store.check(host: "srv", port: 22, keyString: "ssh-ed25519 AAAAx"), .learned)
+        let attrs = try FileManager.default.attributesOfItem(atPath: path)
+        let permissions = (attrs[.posixPermissions] as? NSNumber)?.intValue ?? 0
+        XCTAssertEqual(permissions & 0o777, 0o600)
     }
 
     // Positiv väg: okänd värd lärs in, återanslutning litar på samma nyckel.
