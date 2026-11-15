@@ -1,0 +1,87 @@
+name: Security scanning
+
+on:
+  push:
+    branches: [main, 'security/**']
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "41 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Remove stale Semgrep report
+        run: rm -f semgrep.sarif
+      - name: Run Semgrep
+        id: semgrep_scan
+        env:
+          SEMGREP_SEND_METRICS: "off"
+        run: docker run --rm --volume "$GITHUB_WORKSPACE:/src" --workdir /src --user "$(id -u):$(id -g)" --env HOME=/tmp --env SEMGREP_SEND_METRICS=off semgrep/semgrep@sha256:31e9989dbc5e2019ea2f793196480e0b2e43f881984f324d2452254a167684e8 semgrep scan --config p/default --sarif --output semgrep.sarif .
+      - name: Validate Semgrep SARIF report
+        if: ${{ !cancelled() && steps.semgrep_scan.outcome == 'success' }}
+        shell: bash
+        run: test -s semgrep.sarif
+      - name: Publish Semgrep SARIF
+        id: publish_sarif
+        if: ${{ !cancelled() && steps.semgrep_scan.outcome == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gzip -c semgrep.sarif | base64 -w0 > semgrep.sarif.b64
+          upload_id=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/code-scanning/sarifs" \
+            -f commit_sha="${GITHUB_SHA}" \
+            -f ref="${GITHUB_REF}" \
+            -f checkout_uri="file://${GITHUB_WORKSPACE}" \
+            -f tool_name=Semgrep \
+            -F sarif=@semgrep.sarif.b64 \
+            --jq .id)
+          # The upload is accepted before it is processed. Wait briefly for the
+          # result so a failed processing run triggers the summary step below.
+          for _ in $(seq 30); do
+            status=$(gh api "repos/${GITHUB_REPOSITORY}/code-scanning/sarifs/${upload_id}" --jq .processing_status)
+            case "${status}" in
+              complete) exit 0 ;;
+              failed)
+                gh api "repos/${GITHUB_REPOSITORY}/code-scanning/sarifs/${upload_id}" --jq '.errors[]?'
+                exit 1
+                ;;
+            esac
+            sleep 2
+          done
+          echo "::warning::SARIF processing still pending after 60 seconds"
+      - name: Summarize Semgrep findings when SARIF upload is unavailable
+        if: ${{ !cancelled() && hashFiles('semgrep.sarif') != '' && (steps.semgrep_scan.outcome == 'failure' || steps.publish_sarif.outcome == 'failure' || steps.publish_sarif.outcome == 'skipped') }}
+        env:
+          SARIF_FILE: semgrep.sarif
+        run: |
+          jq -r '
+            [.runs[].results[]?] |
+            if length == 0 then "No findings reported."
+            else .[] |
+              (if any(.suppressions[]?; .kind == "inSource") then "Suppressed" else "Finding" end) as $kind |
+              ([.locations[]?.physicalLocation? | select(.artifactLocation.uri != null) | "\(.artifactLocation.uri):\(.region.startLine // 1)"] | join(", ") | @json) as $where |
+              "\($kind): \(.ruleId // "unknown") at \($where)"
+            end
+          ' "$SARIF_FILE"
