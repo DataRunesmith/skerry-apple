@@ -63,7 +63,10 @@ class PasswordPromptTests(unittest.TestCase):
 
     def check_restored(self, slave, original, flags):
         self.assertEqual(termios.tcgetattr(slave), original)
-        self.assertEqual(fcntl.fcntl(slave, fcntl.F_GETFL), flags)
+        # Compare only the flags a program can change. macOS also reports internal
+        # kernel bits (e.g. 0x10000, "was written") that the child's output sets.
+        mask = os.O_NONBLOCK | os.O_APPEND
+        self.assertEqual(fcntl.fcntl(slave, fcntl.F_GETFL) & mask, flags & mask)
 
     def test_terminal_input_is_hidden_and_settings_restored(self):
         for echo in (True, False):
