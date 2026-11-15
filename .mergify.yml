@@ -1,0 +1,3 @@
+queue_rules:
+  - name: default
+    merge_method: squash
