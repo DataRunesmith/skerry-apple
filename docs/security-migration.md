@@ -1,5 +1,3 @@
-<!-- coderabbit-ai-generated:v1 -->
-
 # Security hardening migration
 
 ## Source compatibility
