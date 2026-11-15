@@ -1,3 +1,24 @@
+# AGENTS.md
+
+Scope
+- Work only in this repo. Never read, change or open PRs against other repos.
+- Do exactly what is asked. No extra files, lines, steps or config.
+- Repo-specific rules: see REPO.md.
+
+Workflow
+- Never change workflows. Only Renovate and Dependabot may.
+- Never work around rulesets, checks or branch rules.
+- Ask before deviating from a tool's standard setup.
+
+Git and review
+- Squash merge, signed commits.
+- Merging is done by the merge queue. After creating a PR, queue it by commenting `@mergifyio queue`. Do not run `gh pr merge`.
+- Never merge, rebase or update a PR branch yourself. The merge queue updates it against main and tests it before merging.
+- Never push to main. Never force-push.
+- If a PR is dequeued or a check fails, fix it on the same branch, push, and queue it again. Do not open a replacement PR.
+- A review conversation is resolved only after the comment is read in full and the flagged code is analyzed. A confirmed defect is fixed before resolving.
+- Nothing personal in code or docs. Generic placeholders only.
+
 # Mandatory Code Quality Requirements
 
 These requirements apply to every change, regardless of language, project size, or whether the change appears minor.
@@ -41,3 +62,15 @@ If a required check cannot be run, or a finding cannot be resolved, do not silen
 ## 3. No PR activity subscriptions
 
 Do not subscribe to GitHub activity on pull requests (for example with `subscribe_pr_activity`), and do not start background monitors or polling loops to watch a PR. Check a PR's state only when asked, or once when it is directly needed to finish the task. If a subscription already exists, unsubscribe from it.
+
+Reporting and context
+- Report only the result, and only when done or blocked. No progress updates, no recaps.
+- Never poll. Never subscribe to PR, CI or repository activity. Never read GitHub notifications.
+- React only to warnings, errors and security alerts. Ignore routine confirmations such as bot comments and merge or subscription notices.
+- Load only the tools, files and history the current task needs.
+
+Language
+- Code, commits, PRs, labels: English.
+- Documentation: English first, Swedish copy in /sv.
+- Talk to the owner in Swedish.
+
