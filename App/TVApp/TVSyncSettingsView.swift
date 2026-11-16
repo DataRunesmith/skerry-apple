@@ -252,9 +252,9 @@ struct TVSyncSettingsView: View {
         .padding(60)
     }
 
-    /// Returnerar `true` om lösenfrasen faktiskt sparades/raderades —
-    /// anropare ska bara gå vidare (stänga vyn, köra en synk) vid `true`
-    /// (en tyst misslyckad radering får aldrig framstå som lyckad).
+    // Returnerar `true` om lösenfrasen faktiskt sparades/raderades —
+    // anropare ska bara gå vidare (stänga vyn, köra en synk) vid `true`
+    // (en tyst misslyckad radering får aldrig framstå som lyckad).
     // Async (istället för att blockera main actor rakt av) — Keychain-IPC
     // kan i värsta fall stalla UI:t om den anropas synkront här.
     @discardableResult

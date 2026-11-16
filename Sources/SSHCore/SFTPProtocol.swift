@@ -407,7 +407,7 @@ public enum SFTPResponse: Equatable {
             // try? dolde tidigare trunkerade/ogiltiga STATUS-meddelanden, och
             // v3:s language-tag-sträng lästes aldrig.
             let message = try buffer.readSFTPString()
-            _ = try buffer.readSFTPString()  // language-tag, används inte
+            _ = try buffer.readSFTPString() // language-tag, används inte
             let code = SFTPStatusCode(rawValue: rawCode)
             return .status(id: id, code: code, message: message)
         case .handle:
@@ -425,7 +425,7 @@ public enum SFTPResponse: Equatable {
             // count är obetrodd tråddata — reserveCapacity(Int(count)) kunde
             // tidigare försöka en enorm allokering innan paketets giltighet
             // ens bevisats.
-            let minimumEncodedEntryBytes = 12  // filnamnslängd + longname-längd + attrs-flaggor
+            let minimumEncodedEntryBytes = 12 // filnamnslängd + longname-längd + attrs-flaggor
             guard UInt64(count) <= UInt64(buffer.readableBytes / minimumEncodedEntryBytes) else {
                 throw SFTPProtocolError.truncatedMessage
             }

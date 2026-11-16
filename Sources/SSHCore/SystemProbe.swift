@@ -65,7 +65,7 @@ public enum SystemProbe {
         "echo @@HOST", "cat /proc/sys/kernel/hostname 2>/dev/null",
         "echo @@NPROC", "nproc 2>/dev/null",
         "echo @@DOCKER", "docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}' 2>/dev/null",
-        "echo @@END",
+        "echo @@END"
     ].joined(separator: "; ")
 
     /// Kör proben över en ansluten session.

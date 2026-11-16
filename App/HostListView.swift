@@ -8,7 +8,7 @@ final class HostListModel: ObservableObject {
     // Inte `private` — HostListView behöver dela SAMMA instans med
     // MultiSessionView/HostDetailView (se HostDetailView.swift), inte låta dem skapa sina egna.
     let store = HostStore()
-    let snippets = SnippetStore()   // synkas i samma rundtur som värdarna
+    let snippets = SnippetStore() // synkas i samma rundtur som värdarna
     @Published var hosts: [Host] = []
 
     init() { reload() }
@@ -104,7 +104,7 @@ struct ConnectRequest: Identifiable {
     let host: Host
     let password: String?
     /// Kommando att köra direkt i shellen (t.ex. `docker exec …`).
-    var initialCommand: String? = nil
+    var initialCommand: String?
 
     /// Kopia som öppnar en shell med ett startkommando.
     func running(_ command: String) -> ConnectRequest {

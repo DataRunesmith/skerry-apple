@@ -40,7 +40,7 @@ public final class AppSettingsStore {
     private var toggles: FeatureToggles
 
     public static var defaultPath: String {
-        (("~/.skerry/settings.json") as NSString).expandingTildeInPath
+        ("~/.skerry/settings.json" as NSString).expandingTildeInPath
     }
 
     public init(path: String? = AppSettingsStore.defaultPath) {

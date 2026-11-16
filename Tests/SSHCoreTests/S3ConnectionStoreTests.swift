@@ -15,7 +15,7 @@ final class S3ConnectionStoreTests: XCTestCase {
         store.upsert(a)
         store.upsert(b)
 
-        XCTAssertEqual(store.all().map(\.name), ["annat-konto", "Example"])  // skiftlägesokänslig sort
+        XCTAssertEqual(store.all().map(\.name), ["annat-konto", "Example"]) // skiftlägesokänslig sort
         XCTAssertEqual(store.get(a.id)?.accessKeyID, "AKID")
 
         store.delete(b.id)

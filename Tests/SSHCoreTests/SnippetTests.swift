@@ -52,7 +52,7 @@ final class SnippetStoreTests: XCTestCase {
         store.upsert(restart)
         store.upsert(logs)
 
-        XCTAssertEqual(store.all().map(\.name), ["Logs", "restart"])  // skiftlägesokänslig sort
+        XCTAssertEqual(store.all().map(\.name), ["Logs", "restart"]) // skiftlägesokänslig sort
         XCTAssertEqual(store.get(restart.id)?.template, "docker compose restart {{service}}")
 
         store.delete(logs.id)

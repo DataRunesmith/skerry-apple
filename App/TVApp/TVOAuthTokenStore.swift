@@ -167,7 +167,7 @@ enum TVOAuthTokenStore {
         request.httpBody = formBody([
             "grant_type": "refresh_token",
             "refresh_token": refreshToken,
-            "client_id": clientID,
+            "client_id": clientID
         ])
         let (data, response) = try synchronousRequest(request)
         guard let http = response as? HTTPURLResponse else { throw OAuthError.requestFailed("inget svar") }

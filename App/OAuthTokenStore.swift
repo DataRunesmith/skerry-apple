@@ -59,7 +59,7 @@ enum OAuthTokenStore {
         request.httpBody = formBody([
             "grant_type": "refresh_token",
             "refresh_token": refreshToken,
-            "client_id": provider.clientID,
+            "client_id": provider.clientID
         ])
         let (data, response) = try synchronousRequest(request)
         try checkHTTPStatus(response, data: data)

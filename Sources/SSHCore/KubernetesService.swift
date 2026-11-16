@@ -104,7 +104,7 @@ public enum KubernetesService {
     /// Avsiktligt SNÄVARE än Dockers — inte överdriven försiktighet utan vad
     /// API-servern accepterar. Att den är snäv gör den också till ett fullgott
     /// injektionsskydd.
-    static let namePattern = try! NSRegularExpression(
+    static let namePattern = try! NSRegularExpression( // swiftlint:disable:this force_try
         pattern: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
     )
 

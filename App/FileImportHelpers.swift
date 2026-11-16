@@ -60,7 +60,7 @@ enum SyncFolder {
             if let legacyPath = UserDefaults.standard.string(forKey: SyncKeys.folderPath),
                !legacyPath.isEmpty {
                 let url = URL(fileURLWithPath: legacyPath)
-                _ = save(url)  // Försöker skapa bookmark; returnerar nil om det misslyckas
+                _ = save(url) // Försöker skapa bookmark; returnerar nil om det misslyckas
                 // Försök igen, nu med det nya bookmarket (eller returera nil om save misslyckades)
                 return UserDefaults.standard.data(forKey: SyncKeys.folderBookmark).flatMap { data in
                     var stale = false

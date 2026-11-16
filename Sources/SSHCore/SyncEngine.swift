@@ -100,8 +100,7 @@ public enum SyncEngine {
             // stabil, ordningsoberoende jämförelse av VÄRDET självt.
             if item.mergeModifiedAt > existing.mergeModifiedAt
                 || (item.mergeModifiedAt == existing.mergeModifiedAt
-                    && item.mergeTiebreakKey > existing.mergeTiebreakKey)
-            {
+                    && item.mergeTiebreakKey > existing.mergeTiebreakKey) {
                 newest[item.mergeID] = item
             }
         }

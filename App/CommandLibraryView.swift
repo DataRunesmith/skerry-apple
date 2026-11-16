@@ -11,7 +11,7 @@ struct CommandLibraryView: View {
     /// Vidarebefordras till `SessionView` för jump-host-uppslagning. `nil`
     /// på anropsplatser som saknar en delad store (ingen regression, se
     /// `SessionView.store`).
-    var store: HostStore? = nil
+    var store: HostStore?
     @State private var running: CommandLibraryEntry?
     @State private var runningRequest: ConnectRequest?
 

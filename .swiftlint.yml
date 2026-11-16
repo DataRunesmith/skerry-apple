@@ -7,3 +7,18 @@ excluded:
 disabled_rules:
   - line_length
   - todo
+  # Strukturella mått och namnstil: kräver omskrivning snarare än rättning.
+  - identifier_name
+  - cyclomatic_complexity
+  - function_body_length
+  - type_body_length
+  - file_length
+  - nesting
+  - large_tuple
+  - function_parameter_count
+  # master/slave är PTY-terminologi (POSIX), inte något vi kan byta namn på.
+  - inclusive_language
+  # String(decoding:as:) används medvetet för förlustbehäftad avkodning av terminalutdata.
+  - optional_data_string_conversion
+  # SwiftUI-idiom (.sheet(isPresented:onDismiss:) { ... }).
+  - multiple_closures_with_trailing_closure

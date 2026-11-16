@@ -48,7 +48,7 @@ public final class S3ConnectionStore {
     private var byID: [UUID: S3Connection]
 
     public static var defaultPath: String {
-        (("~/.skerry/s3connections.json") as NSString).expandingTildeInPath
+        ("~/.skerry/s3connections.json" as NSString).expandingTildeInPath
     }
 
     public init(path: String? = S3ConnectionStore.defaultPath) {

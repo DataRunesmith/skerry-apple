@@ -3,10 +3,10 @@ import Foundation
 /// Hur en sparad värd autentiseras. Hemligheter lagras INTE här — lösenord hör
 /// hemma i Keychain (iOS/macOS), och `keyFile` pekar bara på en nyckel på disk.
 public enum HostAuth: Codable, Sendable, Equatable {
-    case askPassword            // fråga vid varje anslutning (ev. via Keychain)
-    case keyFile(String)        // sökväg till en (okrypterad) privatnyckel
-    case agentDefault           // ~/.ssh/id_ed25519 / ssh-config
-    case keychainKey(String)    // nyckelmaterial importerat i appen, id i Keychain
+    case askPassword // fråga vid varje anslutning (ev. via Keychain)
+    case keyFile(String) // sökväg till en (okrypterad) privatnyckel
+    case agentDefault // ~/.ssh/id_ed25519 / ssh-config
+    case keychainKey(String) // nyckelmaterial importerat i appen, id i Keychain
     /// OpenSSH-certifikatautentisering: privatnyckelns sökväg + det
     /// signerade certifikatets sökväg (typiskt `<nyckel>-cert.pub`,
     /// skrivet av `ssh-keygen -s`).

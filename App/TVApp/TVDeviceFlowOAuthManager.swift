@@ -152,7 +152,7 @@ enum TVDeviceFlowOAuthManager {
             request.httpBody = TVOAuthTokenStore.formBody([
                 "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
                 "client_id": pending.provider.clientID,
-                "device_code": pending.deviceCode,
+                "device_code": pending.deviceCode
             ])
             let data: Data
             let response: URLResponse

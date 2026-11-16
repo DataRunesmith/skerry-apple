@@ -26,7 +26,7 @@ public enum KeyGenerator {
         // anropsvägen, till skillnad från den publika fromExisting(seed:)
         // nedan som MÅSTE kunna kasta ett tydligt fel för godtyckliga,
         // användarinmatade frön.
-        return try! fromExisting(seed: privateKey.rawRepresentation, comment: comment)
+        return try! fromExisting(seed: privateKey.rawRepresentation, comment: comment) // swiftlint:disable:this force_try
     }
 
     /// Bygger ett `GeneratedKeyPair` (för `deployPublicKey`/`verifyKeyAuthWorks`)

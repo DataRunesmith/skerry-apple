@@ -243,7 +243,7 @@ public actor SFTPClient {
         }
         let id: UInt32
         switch response {
-        case .version: return  // ovanför, oåtkomlig gren
+        case .version: return // ovanför, oåtkomlig gren
         case .status(let rid, _, _), .handle(let rid, _), .data(let rid, _),
              .name(let rid, _), .attrs(let rid, _):
             id = rid
@@ -462,7 +462,7 @@ public actor SFTPClient {
             while let chunk = try await read(handle, offset: offset, length: chunkSize) {
                 result.append(contentsOf: chunk)
                 offset += UInt64(chunk.count)
-                if chunk.isEmpty { break }  // undviker oändlig loop mot en server som svarar tom DATA i stället för EOF
+                if chunk.isEmpty { break } // undviker oändlig loop mot en server som svarar tom DATA i stället för EOF
             }
         } catch {
             try? await closeFile(handle)

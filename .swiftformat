@@ -1,3 +1,6 @@
+# Konservativ regeluppsättning: koden använder ett medvetet kompakt stil
+# (t.ex. enrads-`if`), så bara regler som inte skriver om strukturen är på.
 --swiftversion 5.9
 --indent 4
---disable wrapMultilineStatementBraces
+--ranges no-space
+--rules trailingSpace,consecutiveSpaces,blankLinesAtStartOfScope,redundantNilInit,redundantParens,spaceAroundOperators

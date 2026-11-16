@@ -119,7 +119,6 @@ public enum SyncFileError: Error, Equatable, CustomStringConvertible {
     }
 }
 
-
 /// En synktransport: hämta fjärrtillstånd och skriv tillbaka det sammanslagna.
 /// Medvetet minimal så olika ryggar kan implementeras — iCloud Drive, Dropbox,
 /// Syncthing, en Git-mapp, WebDAV — utan att kärnan bryr sig om vilken.

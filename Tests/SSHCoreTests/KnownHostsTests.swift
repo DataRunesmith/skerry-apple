@@ -120,7 +120,7 @@ final class KnownHostsTests: XCTestCase {
             await session.close()
             XCTFail("ändrad värdnyckel borde avvisas")
         } catch {
-            await session.close()   // förväntat
+            await session.close() // förväntat
         }
     }
 }

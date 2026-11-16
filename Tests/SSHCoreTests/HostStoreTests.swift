@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 @testable import SSHCore
 
-private typealias Host = SSHCore.Host   // undvik krock med Foundation.Host
+private typealias Host = SSHCore.Host // undvik krock med Foundation.Host
 
 final class HostStoreTests: XCTestCase {
     func testUpsertGetDeleteSorted() {
@@ -12,14 +12,14 @@ final class HostStoreTests: XCTestCase {
         store.upsert(web)
         store.upsert(nas)
 
-        XCTAssertEqual(store.all().map { $0.alias }, ["NAS", "web"])  // skiftlägesokänslig sort
+        XCTAssertEqual(store.all().map { $0.alias }, ["NAS", "web"]) // skiftlägesokänslig sort
         XCTAssertEqual(store.get(web.id)?.hostName, "10.0.0.5")
 
         var edited = web
         edited.port = 2222
         store.upsert(edited)
         XCTAssertEqual(store.get(web.id)?.port, 2222)
-        XCTAssertEqual(store.all().count, 2)  // upsert på samma id ersätter, inte dubblerar
+        XCTAssertEqual(store.all().count, 2) // upsert på samma id ersätter, inte dubblerar
 
         store.delete(nas.id)
         XCTAssertEqual(store.all().map { $0.alias }, ["web"])
@@ -46,11 +46,11 @@ final class HostStoreTests: XCTestCase {
         do {
             let s1 = HostStore(path: path)
             s1.upsert(h)
-            stored = s1.get(h.id)   // upsert stämplar om modifiedAt
+            stored = s1.get(h.id) // upsert stämplar om modifiedAt
         }
         let s2 = HostStore(path: path)
         let loaded = s2.get(h.id)
-        XCTAssertEqual(loaded, stored)                // full round-trip inkl. auth + tidsstämpel
+        XCTAssertEqual(loaded, stored) // full round-trip inkl. auth + tidsstämpel
         XCTAssertEqual(loaded?.target.port, 2200)
     }
 
@@ -374,7 +374,7 @@ final class HostStoreTests: XCTestCase {
             [
                 "alias", "auth", "colorTag", "forwardAgent", "hostName", "id", "isFavorite",
                 "jumpHostID", "macAddress", "modifiedAt", "platform", "port", "socksProxy",
-                "startupCommand", "tags", "user",
+                "startupCommand", "tags", "user"
             ].sorted(),
             "JSON-formen ändrades. Uppdatera LinuxApps serde-attribut i samma veva, annars "
                 + "släpps det nya fältet tyst vid synk.")
@@ -389,7 +389,7 @@ final class HostStoreTests: XCTestCase {
         var obj = try JSONSerialization.jsonObject(
             with: try JSONEncoder().encode(Host(alias: "a", hostName: "h", user: "u")))
             as! [String: Any]
-        obj["jumpHostId"] = jumpID.uuidString   // gammal stavning, som LinuxApp skrev
+        obj["jumpHostId"] = jumpID.uuidString // gammal stavning, som LinuxApp skrev
         let decoded = try JSONDecoder().decode(
             Host.self, from: try JSONSerialization.data(withJSONObject: obj))
         XCTAssertEqual(decoded.jumpHostID, jumpID, "den gamla stavningen måste fortfarande läsas")
@@ -429,8 +429,8 @@ final class HostStoreTests: XCTestCase {
     /// sparade filer hos användarna.
     func testTheSharedWireFormatFixtureDecodesIdentically() throws {
         let fixture = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()      // SSHCoreTests
-            .deletingLastPathComponent()      // Tests
+            .deletingLastPathComponent() // SSHCoreTests
+            .deletingLastPathComponent() // Tests
             .appendingPathComponent("fixtures/host-wire-format.json")
         let host = try JSONDecoder().decode(Host.self, from: Data(contentsOf: fixture))
 

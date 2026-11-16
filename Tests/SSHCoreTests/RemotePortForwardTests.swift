@@ -116,7 +116,7 @@ final class RemotePortForwardTests: XCTestCase {
 
         let channelType = SSHChannelType.forwardedTCPIP(
             .init(
-                listeningHost: "0.0.0.0", listeningPort: 65_000,  // aldrig registrerad
+                listeningHost: "0.0.0.0", listeningPort: 65_000, // aldrig registrerad
                 originatorAddress: try SocketAddress(ipAddress: "127.0.0.1", port: 0)
             )
         )

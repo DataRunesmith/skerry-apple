@@ -26,7 +26,7 @@ final class SSHConfigTests: XCTestCase {
         XCTAssertEqual(r.hostName, "10.0.0.5")
         XCTAssertEqual(r.user, "deploy")
         XCTAssertEqual(r.port, 2222)
-        XCTAssertEqual(r.identityFile, (("~/.ssh/deploy_ed25519") as NSString).expandingTildeInPath)
+        XCTAssertEqual(r.identityFile, ("~/.ssh/deploy_ed25519" as NSString).expandingTildeInPath)
     }
 
     func testSecondPatternOnSameHostLine() {
@@ -35,7 +35,7 @@ final class SSHConfigTests: XCTestCase {
 
     func testWildcardSuffix() {
         let r = SSHConfig(text: sample).resolve("db1.internal")
-        XCTAssertEqual(r.user, "admin")          // *.internal matchar först
+        XCTAssertEqual(r.user, "admin") // *.internal matchar först
         XCTAssertEqual(r.hostName, "db1.internal") // ingen HostName -> aliaset
     }
 
@@ -59,7 +59,7 @@ final class SSHConfigTests: XCTestCase {
     func testUnknownAliasHitsCatchAll() {
         let r = SSHConfig(text: sample).resolve("random")
         XCTAssertEqual(r.hostName, "random")
-        XCTAssertEqual(r.user, "fallback")   // "!secret *" catch-all
+        XCTAssertEqual(r.user, "fallback") // "!secret *" catch-all
         XCTAssertEqual(r.port, 22)
     }
 
@@ -306,7 +306,7 @@ final class SSHConfigTests: XCTestCase {
     func testCriteriaWeCannotEvaluateLeaveTheBlockInactive() {
         for criteria in [
             "exec \"test -f /tmp/x\"", "user root", "originalhost jump",
-            "localuser user", "final", "canonical", "tagged arbete",
+            "localuser user", "final", "canonical", "tagged arbete"
         ] {
             let config = SSHConfig(
                 text: "Match \(criteria)\n  User skulle-inte-synas\n\nHost *\n  User riktig\n")

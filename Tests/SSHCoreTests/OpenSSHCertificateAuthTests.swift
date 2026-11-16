@@ -54,7 +54,7 @@ final class OpenSSHCertificateAuthTests: XCTestCase {
         try run("/usr/bin/ssh-keygen", ["-t", "ed25519", "-f", caKeyPath, "-N", "", "-C", "test-ca"])
         try run("/usr/bin/ssh-keygen", ["-t", "ed25519", "-f", userKeyPath, "-N", "", "-C", "test-user"])
         try run("/usr/bin/ssh-keygen", [
-            "-s", caKeyPath, "-I", "cert-auth-test", "-n", principal, "-V", "+1d", userKeyPath + ".pub",
+            "-s", caKeyPath, "-I", "cert-auth-test", "-n", principal, "-V", "+1d", userKeyPath + ".pub"
         ])
 
         let caPubLine = try String(contentsOfFile: caKeyPath + ".pub", encoding: .utf8)

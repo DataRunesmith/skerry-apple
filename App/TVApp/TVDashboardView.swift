@@ -32,7 +32,7 @@ struct TVDashboardView: View {
     @State private var syncStatus: SyncOutcome?
 
     private let store = HostStore()
-    private let snippets = SnippetStore()   // synkas i samma rundtur som värdarna
+    private let snippets = SnippetStore() // synkas i samma rundtur som värdarna
 
     /// `nil` för de rutinmässiga lägena (avstängd sync, lyckad synk) —
     /// bara faktiska problem ska stjäla uppmärksamhet på en skärm utan

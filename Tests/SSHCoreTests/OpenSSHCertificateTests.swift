@@ -142,7 +142,7 @@ final class OpenSSHCertificateTests: XCTestCase {
     func testVerifySignatureFailsForTamperedCertificate() throws {
         let base64 = String(userCertLine.split(separator: " ")[1])
         var raw = [UInt8](Data(base64Encoded: base64)!)
-        raw[80] ^= 0xFF  // inuti publicKey-fältet, väl efter magic+nonce
+        raw[80] ^= 0xFF // inuti publicKey-fältet, väl efter magic+nonce
         let tampered = "ssh-ed25519-cert-v01@openssh.com " + Data(raw).base64EncodedString()
         let cert = try OpenSSHCertificate.parse(tampered)
         XCTAssertFalse(try cert.verifySignature())

@@ -27,7 +27,7 @@ final class SFTPProtocolTests: XCTestCase {
 
     func testTruncatedStringThrowsInsteadOfCrashing() {
         var buf = ByteBuffer()
-        buf.writeInteger(UInt32(100))  // påstår 100 byte, men skriver inga
+        buf.writeInteger(UInt32(100)) // påstår 100 byte, men skriver inga
         XCTAssertThrowsError(try buf.readSFTPString()) {
             XCTAssertEqual($0 as? SFTPProtocolError, .truncatedMessage)
         }
@@ -117,14 +117,14 @@ final class SFTPProtocolTests: XCTestCase {
         XCTAssertEqual(try packet.readSFTPString(), "/tmp")
         XCTAssertEqual(packet.readableBytes, 0)
         // längden ska stämma med vad som faktiskt skrevs (typbyte + id + sträng)
-        XCTAssertEqual(Int(length), 1 + 4 + 4 + 4)  // typ + id + strlen-prefix + "/tmp"
+        XCTAssertEqual(Int(length), 1 + 4 + 4 + 4) // typ + id + strlen-prefix + "/tmp"
     }
 
     func testOpenWireFormatIncludesFlagsAndAttrs() throws {
         var packet = SFTPRequest.open(id: 1, path: "x", flags: [.read, .write], attributes: SFTPFileAttributes(size: 10))
-        _ = packet.readInteger(as: UInt32.self)  // längd
+        _ = packet.readInteger(as: UInt32.self) // längd
         XCTAssertEqual(packet.readInteger(as: UInt8.self), SFTPMessageType.open.rawValue)
-        XCTAssertEqual(packet.readInteger(as: UInt32.self), 1)  // id
+        XCTAssertEqual(packet.readInteger(as: UInt32.self), 1) // id
         XCTAssertEqual(try packet.readSFTPString(), "x")
         XCTAssertEqual(packet.readInteger(as: UInt32.self), SFTPOpenFlags.read.union(.write).rawValue)
         let attrs = try SFTPFileAttributes.decode(from: &packet)
@@ -150,10 +150,10 @@ final class SFTPProtocolTests: XCTestCase {
 
     func testDecodeStatusOK() throws {
         var payload = ByteBuffer()
-        payload.writeInteger(UInt32(42))  // id
+        payload.writeInteger(UInt32(42)) // id
         payload.writeInteger(SFTPStatusCode.ok.rawValue)
         payload.writeSFTPString("")
-        payload.writeSFTPString("")  // language tag
+        payload.writeSFTPString("") // language tag
         let response = try SFTPResponse.decode(type: .status, from: &payload)
         XCTAssertEqual(response, .status(id: 42, code: .ok, message: ""))
     }
@@ -176,7 +176,7 @@ final class SFTPProtocolTests: XCTestCase {
     func testDecodeUnknownStatusCodeDoesNotCrash() throws {
         var payload = ByteBuffer()
         payload.writeInteger(UInt32(1))
-        payload.writeInteger(UInt32(999))  // okänd kod, inte i SSH_FX_*-listan
+        payload.writeInteger(UInt32(999)) // okänd kod, inte i SSH_FX_*-listan
         payload.writeSFTPString("")
         payload.writeSFTPString("")
         let response = try SFTPResponse.decode(type: .status, from: &payload)
@@ -207,7 +207,7 @@ final class SFTPProtocolTests: XCTestCase {
         var payload = ByteBuffer()
         payload.writeInteger(UInt32(1))
         payload.writeInteger(SFTPStatusCode.ok.rawValue)
-        payload.writeInteger(UInt32(50))  // säger 50 byte sträng men skickar inga
+        payload.writeInteger(UInt32(50)) // säger 50 byte sträng men skickar inga
         XCTAssertThrowsError(try SFTPResponse.decode(type: .status, from: &payload))
     }
 
@@ -229,8 +229,8 @@ final class SFTPProtocolTests: XCTestCase {
 
     func testDecodeNameWithMultipleEntries() throws {
         var payload = ByteBuffer()
-        payload.writeInteger(UInt32(9))  // id
-        payload.writeInteger(UInt32(2))  // count
+        payload.writeInteger(UInt32(9)) // id
+        payload.writeInteger(UInt32(2)) // count
         payload.writeSFTPString(".")
         payload.writeSFTPString("drwxr-xr-x . .")
         SFTPFileAttributes(permissions: 0o755).encode(into: &payload)
@@ -255,9 +255,9 @@ final class SFTPProtocolTests: XCTestCase {
         // allokera för en miljon poster fastän bufferten bara innehåller
         // några byte — nu ska paketet kastas som trunkerat istället.
         var payload = ByteBuffer()
-        payload.writeInteger(UInt32(1))  // id
-        payload.writeInteger(UInt32(1_000_000))  // count, långt fler än vad bufferten kan rymma
-        payload.writeSFTPString(".")  // bara en enda liten post faktiskt skickad
+        payload.writeInteger(UInt32(1)) // id
+        payload.writeInteger(UInt32(1_000_000)) // count, långt fler än vad bufferten kan rymma
+        payload.writeSFTPString(".") // bara en enda liten post faktiskt skickad
         XCTAssertThrowsError(try SFTPResponse.decode(type: .name, from: &payload))
     }
 

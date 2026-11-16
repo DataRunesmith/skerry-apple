@@ -7,7 +7,7 @@ import Foundation
 public enum SSHKeyError: Error, Sendable, Equatable {
     case notOpenSSHFormat
     case unsupportedKeyType(String)
-    case encrypted          // lösenfras-skyddad — stöds inte än
+    case encrypted // lösenfras-skyddad — stöds inte än
     case malformed
     /// Certifikatets inbäddade publika nyckel matchar inte den laddade
     /// privata nyckeln — de hör inte ihop.
@@ -41,9 +41,9 @@ public enum OpenSSHPrivateKey {
         }
         let cipher = try r.readStringUTF8()
         let kdf = try r.readStringUTF8()
-        _ = try r.readString()            // kdfoptions
+        _ = try r.readString() // kdfoptions
         guard try r.readU32() == 1 else { throw SSHKeyError.malformed }
-        _ = try r.readString()            // publik nyckel
+        _ = try r.readString() // publik nyckel
 
         let privSection = try r.readString()
         guard cipher == "none", kdf == "none" else { throw SSHKeyError.encrypted }
@@ -51,21 +51,21 @@ public enum OpenSSHPrivateKey {
         var pr = ByteReader(Data(privSection))
         let check1 = try pr.readU32()
         let check2 = try pr.readU32()
-        guard check1 == check2 else { throw SSHKeyError.malformed }   // fel lösenfras/korrupt
+        guard check1 == check2 else { throw SSHKeyError.malformed } // fel lösenfras/korrupt
 
         let keyType = try pr.readStringUTF8()
         switch keyType {
         case "ssh-ed25519":
-            _ = try pr.readString()           // publik nyckel (32 byte)
-            let secret = try pr.readString()  // 64 byte: frö(32) || publik(32)
+            _ = try pr.readString() // publik nyckel (32 byte)
+            let secret = try pr.readString() // 64 byte: frö(32) || publik(32)
             guard secret.count == 64 else { throw SSHKeyError.malformed }
             return .ed25519Seed(Data(secret.prefix(32)))
 
         case "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521":
             let curve: ECDSACurve = keyType.hasSuffix("256") ? .p256 : keyType.hasSuffix("384") ? .p384 : .p521
-            _ = try pr.readStringUTF8()       // kurvnamn ("nistp256" m.fl.)
-            _ = try pr.readString()           // publik punkt Q (0x04 || X || Y)
-            let d = try pr.readString()       // mpint: privat skalär
+            _ = try pr.readStringUTF8() // kurvnamn ("nistp256" m.fl.)
+            _ = try pr.readString() // publik punkt Q (0x04 || X || Y)
+            let d = try pr.readString() // mpint: privat skalär
             return .ecdsa(curve: curve, scalar: Data(try normalizeScalar(d, length: curve.scalarLength)))
 
         default:
@@ -154,10 +154,10 @@ public enum OpenSSHPrivateKey {
 
         var whole = ByteWriter()
         whole.bytes.append(contentsOf: Array("openssh-key-v1".utf8) + [0])
-        whole.writeString(Array("none".utf8))       // ciphername
-        whole.writeString(Array("none".utf8))       // kdfname
-        whole.writeString([])                       // kdfoptions
-        whole.writeU32(1)                           // antal nycklar
+        whole.writeString(Array("none".utf8)) // ciphername
+        whole.writeString(Array("none".utf8)) // kdfname
+        whole.writeString([]) // kdfoptions
+        whole.writeU32(1) // antal nycklar
         whole.writeString(pub.bytes)
         whole.writeString(priv.bytes)
 

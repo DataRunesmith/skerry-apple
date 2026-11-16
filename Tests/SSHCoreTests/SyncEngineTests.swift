@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 @testable import SSHCore
 
-private typealias Host = SSHCore.Host   // undvik krock med Foundation.Host
+private typealias Host = SSHCore.Host // undvik krock med Foundation.Host
 
 final class SyncEngineTests: XCTestCase {
     private func host(_ id: UUID, _ alias: String, at t: TimeInterval) -> Host {
@@ -22,7 +22,7 @@ final class SyncEngineTests: XCTestCase {
         let a = SyncState(hosts: [host(id, "gammal", at: 100)])
         let b = SyncState(hosts: [host(id, "ny", at: 200)])
         XCTAssertEqual(SyncEngine.merge(a, b).hosts.first?.alias, "ny")
-        XCTAssertEqual(SyncEngine.merge(b, a).hosts.first?.alias, "ny")  // ordningsoberoende
+        XCTAssertEqual(SyncEngine.merge(b, a).hosts.first?.alias, "ny") // ordningsoberoende
     }
 
     func testTombstoneDeletesAcrossDevices() {
@@ -38,7 +38,7 @@ final class SyncEngineTests: XCTestCase {
     func testNewerEditRevivesOverOlderDelete() {
         let id = UUID()
         let a = SyncState(tombstones: [id: Date(timeIntervalSince1970: 100)])
-        let b = SyncState(hosts: [host(id, "återupplivad", at: 200)])   // redigerad efter raderingen
+        let b = SyncState(hosts: [host(id, "återupplivad", at: 200)]) // redigerad efter raderingen
         let m = SyncEngine.merge(a, b)
         XCTAssertEqual(m.hosts.map { $0.alias }, ["återupplivad"])
         XCTAssertNil(m.tombstones[id])
@@ -50,9 +50,9 @@ final class SyncEngineTests: XCTestCase {
         let b = SyncState(hosts: [host(id2, "b", at: 3), host(id1, "a2", at: 20)])
         let ab = SyncEngine.merge(a, b)
         let ba = SyncEngine.merge(b, a)
-        XCTAssertEqual(ab, ba)                                  // kommutativt
-        XCTAssertEqual(SyncEngine.merge(ab, ab), ab)            // idempotent
-        XCTAssertEqual(ab.hosts.map { $0.alias }, ["a2"])       // LWW + gravsten slår b:s äldre id2
+        XCTAssertEqual(ab, ba) // kommutativt
+        XCTAssertEqual(SyncEngine.merge(ab, ab), ab) // idempotent
+        XCTAssertEqual(ab.hosts.map { $0.alias }, ["a2"]) // LWW + gravsten slår b:s äldre id2
     }
 
     func testStoreMergePersists() {
@@ -77,13 +77,13 @@ final class SyncEngineTests: XCTestCase {
 
         let h = Host(id: UUID(), alias: "web", hostName: "1.1.1.1", user: "u")
         deviceA.upsert(h)
-        try deviceA.sync(with: provider, snippets: snipsA)                 // A skjuter upp
-        try deviceB.sync(with: provider, snippets: snipsB)                 // B hämtar
+        try deviceA.sync(with: provider, snippets: snipsA) // A skjuter upp
+        try deviceB.sync(with: provider, snippets: snipsB) // B hämtar
         XCTAssertEqual(deviceB.get(h.id)?.alias, "web")
 
-        deviceB.delete(h.id)                             // B raderar
+        deviceB.delete(h.id) // B raderar
         try deviceB.sync(with: provider, snippets: snipsB)
-        try deviceA.sync(with: provider, snippets: snipsA)                 // A hämtar raderingen
+        try deviceA.sync(with: provider, snippets: snipsA) // A hämtar raderingen
         XCTAssertNil(deviceA.get(h.id))
     }
 
@@ -101,8 +101,8 @@ final class SyncEngineTests: XCTestCase {
     /// `host::tests::the_shared_sync_state_fixture_decodes_to_the_expected_state`.
     func testTheSharedSyncStateFixtureDecodesIdentically() throws {
         let fixture = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()      // SSHCoreTests
-            .deletingLastPathComponent()      // Tests
+            .deletingLastPathComponent() // SSHCoreTests
+            .deletingLastPathComponent() // Tests
             .appendingPathComponent("fixtures/sync-state-wire-format.json")
         let data = try Data(contentsOf: fixture)
         let state = try JSONDecoder().decode(SyncState.self, from: data)

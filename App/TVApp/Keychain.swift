@@ -48,7 +48,7 @@ enum Keychain {
                     kSecAttrService as String: service,
                     kSecAttrAccount as String: key,
                     kSecReturnData as String: true,
-                    kSecMatchLimit as String: kSecMatchLimitOne,
+                    kSecMatchLimit as String: kSecMatchLimitOne
                 ]
                 var result: AnyObject?
                 let status = SecItemCopyMatching(query as CFDictionary, &result)
@@ -79,7 +79,7 @@ enum Keychain {
         let base: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: key,
+            kSecAttrAccount as String: key
         ]
         // Uppdatera på plats om posten redan finns istället för
         // delete-så-add — den gamla ordningen kunde permanent radera en
@@ -110,7 +110,7 @@ enum Keychain {
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
             kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecMatchLimit as String: kSecMatchLimitOne
         ]
         var result: AnyObject?
         guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
@@ -123,7 +123,7 @@ enum Keychain {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: key,
+            kSecAttrAccount as String: key
         ]
         // "Fanns redan inte" räknas som lyckat — anroparen ville att posten
         // inte längre finns, och det stämmer redan (en anropare
