@@ -2,25 +2,25 @@
 
 {% block tabs %}
   {{ super() }}
-  <section class="bx-hero">
-    <div class="bx-hero__inner md-grid">
-      <div class="bx-hero__text">
-        <p class="bx-hero__eyebrow">{{ config.extra.platform }}</p>
-        <h1 class="bx-hero__title">{{ config.site_name }}</h1>
-        <p class="bx-hero__lead">{{ config.extra.tagline }}</p>
-        <div class="bx-hero__actions">
-          <a class="bx-btn bx-btn--primary" href="getting-started/">Get started</a>
-          <a class="bx-btn" href="{{ config.repo_url }}">Source on GitHub</a>
+  <section class="skerry-hero">
+    <div class="skerry-hero__inner md-grid">
+      <div class="skerry-hero__text">
+        <p class="skerry-hero__eyebrow">{{ config.extra.platform }}</p>
+        <h1 class="skerry-hero__title">{{ config.site_name }}</h1>
+        <p class="skerry-hero__lead">{{ config.extra.tagline }}</p>
+        <div class="skerry-hero__actions">
+          <a class="skerry-btn skerry-btn--primary" href="getting-started/">Get started</a>
+          <a class="skerry-btn" href="{{ config.repo_url }}">Source on GitHub</a>
         </div>
       </div>
-      <div class="bx-hero__art" aria-hidden="true">
-        <div class="bx-term">
-          <div class="bx-term__bar"><span></span><span></span><span></span></div>
-          <pre class="bx-term__body"><span class="bx-p">$</span> ssh deploy@server.example.com
-<span class="bx-dim">Host key matches (ED25519).</span>
-<span class="bx-p">deploy@server:~$</span> uptime
+      <div class="skerry-hero__art" aria-hidden="true">
+        <div class="skerry-term">
+          <div class="skerry-term__bar"><span></span><span></span><span></span></div>
+          <pre class="skerry-term__body"><span class="skerry-p">$</span> ssh deploy@server.example.com
+<span class="skerry-dim">Host key matches (ED25519).</span>
+<span class="skerry-p">deploy@server:~$</span> uptime
  load average: 0.08, 0.12, 0.10
-<span class="bx-p">deploy@server:~$</span> <span class="bx-cursor"></span></pre>
+<span class="skerry-p">deploy@server:~$</span> <span class="skerry-cursor"></span></pre>
         </div>
       </div>
     </div>
@@ -28,7 +28,7 @@
 {% endblock %}
 
 {% block content %}
-  <div class="bx-home">
+  <div class="skerry-home">
     {{ super() }}
   </div>
 {% endblock %}
