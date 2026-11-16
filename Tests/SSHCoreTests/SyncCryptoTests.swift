@@ -128,6 +128,16 @@ final class SyncCryptoTests: XCTestCase {
         }
     }
 
+
+    func testSealRejectsOutOfRangeIterationCounts() {
+        XCTAssertThrowsError(
+            try SyncCrypto.seal(SyncState(), passphrase: "pw", iterations: SyncCrypto.minIterations - 1)
+        ) { XCTAssertEqual($0 as? SyncCryptoError, .badFormat) }
+        XCTAssertThrowsError(
+            try SyncCrypto.seal(SyncState(), passphrase: "pw", iterations: SyncCrypto.maxIterations + 1)
+        ) { XCTAssertEqual($0 as? SyncCryptoError, .badFormat) }
+    }
+
     /// Värdena MÅSTE vara samma som LinuxApps (`sync_crypto.rs`). Går de isär
     /// blir ett kuvert som ena plattformen skrivit oläsbart på den andra —
     /// en synk som slutar fungera utan att någon ändrat något.
@@ -197,5 +207,37 @@ final class SyncCryptoTests: XCTestCase {
     /// som en synk som fungerar på en enhet men inte på nästa.
     func testTheCapMatchesTheOneLinuxAppUses() {
         XCTAssertEqual(SyncFileLimits.maxBytes, 64 * 1024 * 1024)
+    }
+}
+
+final class SyncSymlinkTests: XCTestCase {
+    func testSyncWriteRejectsNonRegularSymlinkTarget() throws {
+        let root = NSTemporaryDirectory() + "skerry-sync-target-\(UUID().uuidString)"
+        try FileManager.default.createDirectory(atPath: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: root) }
+        let link = root + "/state"
+        try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: root)
+        XCTAssertThrowsError(try FolderSyncProvider(path: link).push(SyncState()))
+        XCTAssertThrowsError(try EncryptedFolderSyncProvider(path: link, passphrase: "test").push(SyncState()))
+        XCTAssertEqual(try FileManager.default.destinationOfSymbolicLink(atPath: link), root)
+    }
+
+    func testBothProvidersPreserveSharedSymlink() throws {
+        let root = NSTemporaryDirectory() + "skerry-sync-link-\(UUID().uuidString)"
+        try FileManager.default.createDirectory(atPath: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: root) }
+        for encrypted in [false, true] {
+            let target = root + "/target-\(encrypted)"
+            let link = root + "/link-\(encrypted)"
+            try Data().write(to: URL(fileURLWithPath: target))
+            try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: target)
+            let provider: any SyncProvider = encrypted
+                ? EncryptedFolderSyncProvider(path: link, passphrase: "test")
+                : FolderSyncProvider(path: link)
+            try provider.push(SyncState())
+            XCTAssertEqual(try FileManager.default.destinationOfSymbolicLink(atPath: link), target)
+            XCTAssertNotNil(try provider.pull())
+            XCTAssertFalse(try Data(contentsOf: URL(fileURLWithPath: target)).isEmpty)
+        }
     }
 }
