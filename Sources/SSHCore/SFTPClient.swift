@@ -505,6 +505,29 @@ public actor SFTPClient {
         try await closeFile(handle)
     }
 
+    #if canImport(Darwin) || canImport(Glibc)
+    /// Streams a local file to the server in chunks instead of loading it whole.
+    public func writeFile(_ path: String, from source: SFTPUploadSource, chunkSize: Int = 32768) async throws {
+        guard chunkSize > 0 else {
+            throw SFTPClientError.protocolViolation("chunkSize måste vara större än 0")
+        }
+        let handle = try await openFile(path, flags: [.write, .create, .truncate])
+        var offset: UInt64 = 0
+        do {
+            while true {
+                let chunk = try source.readChunk(maxLength: chunkSize)
+                if chunk.isEmpty { break }
+                try await write(handle, offset: offset, data: Array(chunk))
+                offset += UInt64(chunk.count)
+            }
+        } catch {
+            try? await closeFile(handle)
+            throw error
+        }
+        try await closeFile(handle)
+    }
+    #endif
+
     private static func expectOK(_ response: SFTPResponse) throws {
         guard case .status(_, let code, let message) = response else {
             throw SFTPClientError.protocolViolation("väntade STATUS, fick något annat")

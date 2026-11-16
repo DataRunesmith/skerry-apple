@@ -292,8 +292,7 @@ final class SFTPBrowserModel: ObservableObject {
                     }
                 }
             } else {
-                let data = try source.read()
-                try await client.writeFile(remotePath, data: Array(data))
+                try await client.writeFile(remotePath, from: source)
             }
         } catch {
             uploadErrors.append("\(name): \(error.localizedDescription)")

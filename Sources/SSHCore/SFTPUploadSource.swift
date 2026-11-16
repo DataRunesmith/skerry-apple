@@ -96,5 +96,14 @@ public final class SFTPUploadSource {
         let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: false)
         return try handle.readToEnd() ?? Data()
     }
+
+    /// Reads the next chunk (empty at end of file), so large files can be
+    /// uploaded without holding them in memory.
+    public func readChunk(maxLength: Int) throws -> Data {
+        guard !isDirectory else { throw Self.posixError(EISDIR) }
+        guard maxLength > 0 else { throw Self.posixError(EINVAL) }
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: false)
+        return try handle.read(upToCount: maxLength) ?? Data()
+    }
 }
 #endif
