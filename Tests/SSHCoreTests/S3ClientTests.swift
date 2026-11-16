@@ -11,9 +11,7 @@ private final class RecordingURLProtocol: URLProtocol {
     static var lastRequest: URLRequest?
     static var responseBody = Data("<?xml version=\"1.0\"?><ListAllMyBucketsResult><Buckets></Buckets></ListAllMyBucketsResult>".utf8)
 
-    // swiftlint:disable:next static_over_final_class
     override class func canInit(with request: URLRequest) -> Bool { true }
-    // swiftlint:disable:next static_over_final_class
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {

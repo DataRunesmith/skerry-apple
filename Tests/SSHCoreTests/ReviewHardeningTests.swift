@@ -171,7 +171,6 @@ private final class ChallengeSender: NSObject, URLAuthenticationChallengeSender 
     func rejectProtectionSpaceAndContinue(with challenge: URLAuthenticationChallenge) {}
 }
 
-
 private final class StalledBinaryProtocol: URLProtocol {
     static var started: XCTestExpectation?
     static var stopped: XCTestExpectation?

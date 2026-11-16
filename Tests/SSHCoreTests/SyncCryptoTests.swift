@@ -128,7 +128,6 @@ final class SyncCryptoTests: XCTestCase {
         }
     }
 
-
     func testSealRejectsOutOfRangeIterationCounts() {
         XCTAssertThrowsError(
             try SyncCrypto.seal(SyncState(), passphrase: "pw", iterations: SyncCrypto.minIterations - 1)

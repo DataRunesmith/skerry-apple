@@ -3,9 +3,9 @@ import Foundation
 import NIOCore
 import NIOSSH
 
-/// TOFU-validering av värdnyckeln mot en `KnownHosts`-lagring. Okänd värd lärs
-/// in; oförändrad accepteras; ändrad avvisas (MITM-skydd). Ersätter den tidigare
-/// "acceptera allt"-stubben.
+// TOFU-validering av värdnyckeln mot en `KnownHosts`-lagring. Okänd värd lärs
+// in; oförändrad accepteras; ändrad avvisas (MITM-skydd). Ersätter den tidigare
+// "acceptera allt"-stubben.
 // Configuration is immutable, KnownHosts serializes its state with a lock, and
 // the failure callback is invoked only on the validation promise's event loop.
 final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unchecked Sendable {

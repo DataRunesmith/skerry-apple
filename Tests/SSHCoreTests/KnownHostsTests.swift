@@ -29,7 +29,6 @@ final class KnownHostsTests: XCTestCase {
                        .changed(stored: "ssh-ed25519 AAAAx"))
     }
 
-
     func testSymlinkedKnownHostsFailsClosedInsteadOfTrustingExternalFile() throws {
         let root = (URL(fileURLWithPath: NSTemporaryDirectory()).resolvingSymlinksInPath().path + "/") + "skerry-kh-link-\(UUID().uuidString)"
         let directory = root + "/.skerry"

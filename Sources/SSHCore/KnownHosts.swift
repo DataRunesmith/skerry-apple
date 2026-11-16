@@ -14,10 +14,10 @@ import Glibc
 /// Standardplats: `~/.skerry/known_hosts`. `path: nil` = endast i minne (test).
 public final class KnownHosts {
     public enum Verdict: Sendable, Equatable {
-        case trusted                    // matchar lagrad nyckel
-        case learned                    // ny värd — nu inlärd
-        case changed(stored: String)    // skiljer sig från lagrad nyckel
-        case storageFailure             // could not persist a new host key
+        case trusted // matchar lagrad nyckel
+        case learned // ny värd — nu inlärd
+        case changed(stored: String) // skiljer sig från lagrad nyckel
+        case storageFailure // could not persist a new host key
     }
 
     private let path: String?
@@ -26,7 +26,7 @@ public final class KnownHosts {
     private var storageUnavailable: Bool
 
     public static var defaultPath: String {
-        (("~/.skerry/known_hosts") as NSString).expandingTildeInPath
+        ("~/.skerry/known_hosts" as NSString).expandingTildeInPath
     }
 
     public init(path: String? = KnownHosts.defaultPath) {
