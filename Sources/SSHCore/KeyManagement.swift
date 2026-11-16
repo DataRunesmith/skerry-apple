@@ -125,7 +125,7 @@ func deployPublicKeyCommandWindows(_ publicKeyLine: String, path: String, setACL
     $path = \(psPath)
     $dir = \(psDir)
     if (!(Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-    if (!(Test-Path $path) -or -not (Select-String -Path $path -Pattern ([regex]::Escape($key)) -SimpleMatch -Quiet)) {
+    if (!(Test-Path $path) -or -not (Select-String -Path $path -Pattern $key -SimpleMatch -Quiet)) {
         Add-Content -Path $path -Value $key
     }
     """

@@ -463,4 +463,21 @@ final class HostStoreTests: XCTestCase {
         XCTAssertEqual(roundTripped.auth, host.auth)
         XCTAssertEqual(roundTripped.forwardAgent, host.forwardAgent)
     }
+
+    func testCorruptHostsFileIsBackedUpBeforeBeingOverwritten() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let path = dir.appendingPathComponent("hosts.json").path
+        try Data("{ not valid json".utf8).write(to: URL(fileURLWithPath: path))
+
+        let store = HostStore(path: path)
+        XCTAssertTrue(store.all().isEmpty)
+
+        let backups = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+            .filter { $0.hasPrefix("hosts.json.corrupt-") }
+        XCTAssertEqual(backups.count, 1)
+        let saved = try Data(contentsOf: dir.appendingPathComponent(backups[0]))
+        XCTAssertEqual(String(decoding: saved, as: UTF8.self), "{ not valid json")
+    }
 }

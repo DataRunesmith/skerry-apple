@@ -561,11 +561,13 @@ public final class SSHSession {
 
     /// Bekvämlighet: samla hela utdatan till en sträng.
     public func run(_ command: String) async throws -> String {
-        var out = ""
+        // Samla råa bytes och avkoda en gång, så att flerbytestecken som delas
+        // över två datablock inte blir ersättningstecken.
+        var out: [UInt8] = []
         for try await chunk in execute(command) {
-            out += chunk.text
+            out += chunk.bytes
         }
-        return out
+        return String(decoding: out, as: UTF8.self)
     }
 
     public func close() async {

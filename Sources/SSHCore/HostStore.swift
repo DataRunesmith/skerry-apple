@@ -35,6 +35,11 @@ public final class HostStore: @unchecked Sendable {
         if let hosts = try? JSONDecoder().decode([Host].self, from: data) {
             return SyncState(hosts: hosts)
         }
+        // Oläsbar fil: spara en kopia så att nästa persist() inte raderar den.
+        if !data.isEmpty {
+            let backup = path + ".corrupt-\(Int(Date().timeIntervalSince1970))"
+            try? data.write(to: URL(fileURLWithPath: backup), options: .atomic)
+        }
         return SyncState()
     }
 

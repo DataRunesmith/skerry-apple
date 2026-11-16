@@ -268,8 +268,16 @@ public actor SFTPClient {
     private func request(_ packet: ByteBuffer, id: UInt32) async throws -> SFTPResponse {
         try await withCheckedThrowingContinuation { cont in
             pending[id] = cont
-            channel.writeAndFlush(packet, promise: nil)
+            // Misslyckas skrivningen (kanalen stängd) ska väntande anrop avslutas
+            // i stället för att hänga för alltid.
+            channel.writeAndFlush(packet).whenFailure { [weak self] error in
+                Task { await self?.failPending(id: id, error: error) }
+            }
         }
+    }
+
+    private func failPending(id: UInt32, error: Error) {
+        pending.removeValue(forKey: id)?.resume(throwing: error)
     }
 
     private func performHandshake() async throws {

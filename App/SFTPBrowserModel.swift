@@ -124,7 +124,7 @@ final class SFTPBrowserModel: ObservableObject {
     func navigateUp() async {
         guard canNavigateUp else { return }
         if let slash = currentPath.lastIndex(of: "/") {
-            currentPath = String(currentPath[currentPath.startIndex..<slash])
+            currentPath = slash == currentPath.startIndex ? "/" : String(currentPath[currentPath.startIndex..<slash])
         } else {
             currentPath = "."
         }
