@@ -112,7 +112,7 @@ public final class KnownHosts {
         for line in text.split(whereSeparator: { $0 == "\n" || $0 == "\r" }) {
             let parts = line.split(separator: " ", maxSplits: 1)
             guard parts.count == 2 else { continue }
-            out[String(parts[0])] = String(parts[1])
+            out[String(parts[0]).lowercased()] = String(parts[1])
         }
         return out
     }
@@ -120,7 +120,7 @@ public final class KnownHosts {
     /// Avgör hur en presenterad nyckel förhåller sig till vad vi sett tidigare.
     /// Lär in nyckeln (och persisterar) om värden är ny.
     public func check(host: String, port: Int, keyString: String) -> Verdict {
-        let id = "\(host):\(port)"
+        let id = "\(host.lowercased()):\(port)"
         return lock.withLock {
             if storageUnavailable { return .storageFailure }
             if let stored = entries[id] {

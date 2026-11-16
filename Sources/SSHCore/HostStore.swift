@@ -38,7 +38,7 @@ public final class HostStore: @unchecked Sendable {
         // Oläsbar fil: spara en kopia så att nästa persist() inte raderar den.
         if !data.isEmpty {
             let backup = path + ".corrupt-\(Int(Date().timeIntervalSince1970))"
-            try? data.write(to: URL(fileURLWithPath: backup), options: .atomic)
+            try? PrivateFile.write(data, to: backup)
         }
         return SyncState()
     }
@@ -191,7 +191,7 @@ public final class HostStore: @unchecked Sendable {
         let state = SyncState(hosts: Array(byID.values).sorted { $0.alias < $1.alias },
                               tombstones: tombstones)
         if let data = try? encoder.encode(state) {
-            try? data.write(to: URL(fileURLWithPath: path), options: .atomic)
+            try? PrivateFile.write(data, to: path)
         }
     }
 }

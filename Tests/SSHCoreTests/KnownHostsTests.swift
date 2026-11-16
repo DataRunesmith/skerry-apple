@@ -122,4 +122,12 @@ final class KnownHostsTests: XCTestCase {
             await session.close() // förväntat
         }
     }
+
+    func testHostNamesAreMatchedCaseInsensitively() {
+        let store = KnownHosts(path: nil)
+        XCTAssertEqual(store.check(host: "Example.COM", port: 22, keyString: "ssh-ed25519 AAAAkeyA"), .learned)
+        XCTAssertEqual(store.check(host: "example.com", port: 22, keyString: "ssh-ed25519 AAAAkeyA"), .trusted)
+        XCTAssertEqual(store.check(host: "EXAMPLE.com", port: 22, keyString: "ssh-ed25519 AAAAkeyB"),
+                       .changed(stored: "ssh-ed25519 AAAAkeyA"))
+    }
 }

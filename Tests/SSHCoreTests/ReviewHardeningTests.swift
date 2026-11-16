@@ -147,6 +147,21 @@ final class ReviewHardeningTests: XCTestCase {
         await fulfillment(of: [sessionCallback, taskCallback], timeout: 5)
         task.cancel()
     }
+
+    func testPowerShellQuotingDoublesTypographicQuotes() {
+        XCTAssertEqual(powerShellQuoted("a'b\u{2019}c"), "'a''b\u{2019}\u{2019}c'")
+    }
+
+    func testHostsFileIsWrittenOwnerOnly() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let path = dir.appendingPathComponent("hosts.json").path
+        let store = HostStore(path: path)
+        store.upsert(Host(alias: "a", hostName: "h", user: "u"))
+        let attributes = try FileManager.default.attributesOfItem(atPath: path)
+        XCTAssertEqual((attributes[.posixPermissions] as? NSNumber)?.intValue, 0o600)
+    }
 }
 
 private final class RejectingChallenges: NSObject, URLSessionTaskDelegate, @unchecked Sendable {

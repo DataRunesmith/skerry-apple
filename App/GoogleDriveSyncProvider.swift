@@ -41,13 +41,17 @@ struct GoogleDriveSyncProvider: SyncProvider {
         let files: [Entry]
     }
 
+    private func driveQueryEscaped(_ s: String) -> String {
+        s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'")
+    }
+
     private func findFileID() throws -> String? {
         guard var components = URLComponents(string: "https://www.googleapis.com/drive/v3/files") else {
             throw OAuthError.invalidCallback
         }
         components.queryItems = [
             URLQueryItem(name: "spaces", value: "appDataFolder"),
-            URLQueryItem(name: "q", value: "name = '\(filename)'"),
+            URLQueryItem(name: "q", value: "name = '\(driveQueryEscaped(filename))'"),
             URLQueryItem(name: "fields", value: "files(id)")
         ]
         var request = URLRequest(url: components.url!)

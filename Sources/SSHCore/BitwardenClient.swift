@@ -18,6 +18,7 @@ import Foundation
 public enum BitwardenClientError: Error, Sendable, Equatable {
     case commandFailed(exitCode: Int32, stderr: String)
     case emptyPassword
+    case invalidItemID
 }
 
 public enum BitwardenClient {
@@ -31,6 +32,8 @@ public enum BitwardenClient {
         executableURL: URL = URL(fileURLWithPath: "/usr/bin/env"),
         binaryName: String = "bw"
     ) throws -> String {
+        // An ID starting with "-" would be parsed by `bw` as an option.
+        guard !itemID.isEmpty, !itemID.hasPrefix("-") else { throw BitwardenClientError.invalidItemID }
         var arguments = binaryName.isEmpty ? [] : [binaryName]
         // --nointeraction: utan sessionsnyckel/med en utgången session skulle
         // `bw` annars fråga interaktivt efter huvudlösenordet — en process
