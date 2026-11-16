@@ -5,5 +5,6 @@ case "$f" in
   */Sources/*.swift|*/Tests/*.swift) ;;
   *) exit 0 ;;
 esac
+[ -f "$HOME/.local/share/swiftly/env.sh" ] && . "$HOME/.local/share/swiftly/env.sh"
 command -v swift >/dev/null 2>&1 || exit 0
 cd "$(dirname "$0")/../.." && out=$(swift build 2>&1) || { echo "$out" | tail -30 >&2; exit 2; }
