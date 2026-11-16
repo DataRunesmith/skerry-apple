@@ -462,7 +462,7 @@ final class ServerSFTPHandler: ChannelDuplexHandler {
             sendStatus(id: id, code: .opUnsupported, context: context)
 
         case .version, .status, .handle, .data, .name, .attrs:
-            break  // svarstyper — kommer aldrig från en klient
+            break // svarstyper — kommer aldrig från en klient
         }
     }
 

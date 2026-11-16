@@ -13,7 +13,6 @@ import XCTest
 /// de finns bara som testdata. PEM-armorn byggs vid körning så att GitHubs
 /// secret scanning inte tolkar testfixtures som driftshemligheter.
 final class SSHKeyParserTests: XCTestCase {
-
     private static let openSSHLabelParts = ["OPENSSH", "PRIVATE", "KEY"]
     private static let openSSHLabel = openSSHLabelParts.joined(separator: " ")
 
@@ -178,7 +177,7 @@ final class SSHKeyParserTests: XCTestCase {
                 [0] + Array(repeating: 1, count: length),
                 [1] + Array(repeating: 0, count: length),
                 [0, 0x80] + Array(repeating: 0, count: length),
-                Array(repeating: 0, count: 1_000_000),
+                Array(repeating: 0, count: 1_000_000)
             ]
             for encoded in malformed {
                 XCTAssertThrowsError(try OpenSSHPrivateKey.parse(ecdsaPEM(curve: name, scalar: encoded))) { error in
@@ -208,7 +207,7 @@ final class SSHKeyParserTests: XCTestCase {
         for junk in [
             "",
             "inte en nyckel alls",
-            invalidRSA,
+            invalidRSA
         ] {
             XCTAssertThrowsError(try OpenSSHPrivateKey.parse(junk), "skulle avvisats: \(junk)")
         }

@@ -25,7 +25,7 @@ public final class WireGuardProfileStore {
     private var byID: [UUID: WireGuardProfile]
 
     public static var defaultPath: String {
-        (("~/.skerry/wireguard.json") as NSString).expandingTildeInPath
+        ("~/.skerry/wireguard.json" as NSString).expandingTildeInPath
     }
 
     public init(path: String? = WireGuardProfileStore.defaultPath) {

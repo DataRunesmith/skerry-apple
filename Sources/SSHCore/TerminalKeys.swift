@@ -42,12 +42,12 @@ public enum TerminalKeys {
 
         public var bytes: [UInt8] {
             switch self {
-            case .home: return [0x1B, 0x5B, 0x48]           // ESC [ H
-            case .end: return [0x1B, 0x5B, 0x46]            // ESC [ F
-            case .pageUp: return [0x1B, 0x5B, 0x35, 0x7E]   // ESC [ 5 ~
+            case .home: return [0x1B, 0x5B, 0x48] // ESC [ H
+            case .end: return [0x1B, 0x5B, 0x46] // ESC [ F
+            case .pageUp: return [0x1B, 0x5B, 0x35, 0x7E] // ESC [ 5 ~
             case .pageDown: return [0x1B, 0x5B, 0x36, 0x7E] // ESC [ 6 ~
-            case .insert: return [0x1B, 0x5B, 0x32, 0x7E]   // ESC [ 2 ~
-            case .delete: return [0x1B, 0x5B, 0x33, 0x7E]   // ESC [ 3 ~
+            case .insert: return [0x1B, 0x5B, 0x32, 0x7E] // ESC [ 2 ~
+            case .delete: return [0x1B, 0x5B, 0x33, 0x7E] // ESC [ 3 ~
             }
         }
     }
@@ -60,7 +60,7 @@ public enum TerminalKeys {
     /// precis den sortens bugg som ser ut att fungera vid en snabb
     /// kontroll.
     private static let functionTildeCodes: [Int: Int] = [
-        5: 15, 6: 17, 7: 18, 8: 19, 9: 20, 10: 21, 11: 23, 12: 24,
+        5: 15, 6: 17, 7: 18, 8: 19, 9: 20, 10: 21, 11: 23, 12: 24
     ]
 
     /// F1–F12. `nil` för allt utanför intervallet.

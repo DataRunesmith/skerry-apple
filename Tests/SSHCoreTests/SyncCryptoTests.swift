@@ -41,7 +41,7 @@ final class SyncCryptoTests: XCTestCase {
 
     func testTamperIsDetected() throws {
         var blob = try SyncCrypto.seal(sampleState(), passphrase: "pw", iterations: 1000)
-        blob[blob.count - 1] ^= 0xFF        // ändra sista chiffertext-byten
+        blob[blob.count - 1] ^= 0xFF // ändra sista chiffertext-byten
         XCTAssertThrowsError(try SyncCrypto.open(blob, passphrase: "pw")) {
             XCTAssertEqual($0 as? SyncCryptoError, .wrongPassphraseOrTampered)
         }

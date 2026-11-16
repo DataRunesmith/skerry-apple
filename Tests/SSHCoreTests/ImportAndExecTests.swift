@@ -41,7 +41,7 @@ final class ImportAndExecTests: XCTestCase {
     func testImportSkipsDuplicatesOnReimport() {
         let store = HostStore(path: nil)
         XCTAssertEqual(store.importSSHConfig(config).count, 3)
-        XCTAssertEqual(store.importSSHConfig(config).count, 0)   // re-import lägger inte till igen
+        XCTAssertEqual(store.importSSHConfig(config).count, 0) // re-import lägger inte till igen
         XCTAssertEqual(store.all().count, 3)
     }
 

@@ -13,7 +13,6 @@ import XCTest
 /// gjordes. Den som "förenklar" tillbaka till sekventiell läsning får nu
 /// ett test som hänger i stället för en kommentar som ignoreras.
 final class ProcessRunnerTests: XCTestCase {
-
     private let shell = URL(fileURLWithPath: "/bin/sh")
 
     func testCapturesStdoutStderrAndExitCodeSeparately() throws {
@@ -69,7 +68,7 @@ final class ProcessRunnerTests: XCTestCase {
             executableURL: shell,
             arguments: [
                 "-c",
-                "head -c \(size) /dev/zero | tr '\\0' 'a' & head -c \(size) /dev/zero | tr '\\0' 'b' 1>&2; wait",
+                "head -c \(size) /dev/zero | tr '\\0' 'a' & head -c \(size) /dev/zero | tr '\\0' 'b' 1>&2; wait"
             ]
         )
         XCTAssertEqual(result.stdout.count, size)

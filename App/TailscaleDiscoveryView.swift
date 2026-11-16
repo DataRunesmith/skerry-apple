@@ -95,7 +95,7 @@ struct TailscaleDiscoveryView: View {
     /// på anropsplatser utan delad store — bara en host UTAN jump-host
     /// ansluter då direkt; en host MED jumpHostID nekas anslutning
     /// (jump-hosten går inte att lösa upp utan store), se `resolveConnectionPlan`.
-    var store: HostStore? = nil
+    var store: HostStore?
     let onAddHost: (_ alias: String, _ hostName: String) -> Void
 
     @StateObject private var model = TailscaleDiscoveryModel()

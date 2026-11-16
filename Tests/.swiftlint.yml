@@ -1,0 +1,4 @@
+# I tester är force_try/force_cast ett accepterat sätt att låta testet misslyckas.
+disabled_rules:
+  - force_try
+  - force_cast

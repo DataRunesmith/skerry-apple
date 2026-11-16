@@ -38,7 +38,7 @@ public enum BitwardenClient {
         // bara hängt tills anropande kod (execute()/openShell()-liknande
         // timeouter) gett upp, i stället för att faila direkt.
         arguments += ["get", "password", itemID, "--nointeraction"]
-        var environment: [String: String]? = nil
+        var environment: [String: String]?
         if let session, !session.isEmpty {
             environment = ["BW_SESSION": session]
         }

@@ -38,7 +38,7 @@ final class DockerServiceTests: XCTestCase {
     func testTrailingLineSeparatorsCannotReachCommandBuilders() {
         let builders: [(String) throws -> String] = [
             DockerService.startCommand, DockerService.stopCommand, DockerService.restartCommand,
-            { try DockerService.logsCommand($0, tail: 1) }, DockerService.execShellCommand,
+            { try DockerService.logsCommand($0, tail: 1) }, DockerService.execShellCommand
         ]
         for separator in ["\n", "\r", "\r\n", "\u{0085}", "\u{2028}", "\u{2029}"] {
             let ref = "plex" + separator

@@ -5,9 +5,9 @@ import UniformTypeIdentifiers
 
 enum SyncKeys {
     static let enabled = "syncEnabled"
-    static let folderPath = "syncFolderPath"          // visningsnamn på vald mapp
-    static let folderBookmark = "syncFolderBookmark"  // security-scoped bookmark (Data)
-    static let passphraseKey = "syncPassphrase"   // lagras i Keychain, inte UserDefaults
+    static let folderPath = "syncFolderPath" // visningsnamn på vald mapp
+    static let folderBookmark = "syncFolderBookmark" // security-scoped bookmark (Data)
+    static let passphraseKey = "syncPassphrase" // lagras i Keychain, inte UserDefaults
     // "folder" (standard), "dropbox", "googledrive" eller "onedrive"
     static let transport = "syncTransport"
 }
@@ -59,7 +59,7 @@ struct SyncSettingsView: View {
                             if case .success(let urls) = result, let url = urls.first {
                                 if let name = SyncFolder.save(url) {
                                     folderPath = name
-                                    status = nil  // Rensa eventuellt tidigare felmeddelande
+                                    status = nil // Rensa eventuellt tidigare felmeddelande
                                 } else {
                                     status = "Kunde inte spara mappåtkomst. Försök igen."
                                 }

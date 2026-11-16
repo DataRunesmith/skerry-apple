@@ -51,7 +51,7 @@ let promptStopSignals: [Int32] = [SIGTSTP, SIGTTIN, SIGTTOU]
 func promptRestoreAndTerminate(_ sig: Int32) {
     _ = tcsetattr(STDIN_FILENO, TCSAFLUSH, &promptVisible)
     _ = signal(sig, SIG_DFL)
-    _ = raise(sig)  // Blocked inside the handler; delivered when it returns.
+    _ = raise(sig) // Blocked inside the handler; delivered when it returns.
 }
 
 func promptRestoreAndStop(_ sig: Int32) {
@@ -61,7 +61,7 @@ func promptRestoreAndStop(_ sig: Int32) {
     sigemptyset(&unblock)
     sigaddset(&unblock, sig)
     _ = sigprocmask(SIG_UNBLOCK, &unblock, nil)
-    _ = raise(sig)  // The process stops here and continues after SIGCONT.
+    _ = raise(sig) // The process stops here and continues after SIGCONT.
     _ = signal(sig, promptRestoreAndStop)
     _ = tcsetattr(STDIN_FILENO, TCSAFLUSH, &promptHidden)
     if let promptText {

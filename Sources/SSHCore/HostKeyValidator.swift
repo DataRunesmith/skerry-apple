@@ -39,7 +39,7 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate {
 
 /// SHA256-fingeravtryck i samma format som `ssh-keygen -lf` ("SHA256:...").
 func fingerprint(of key: NIOSSHPublicKey) -> HostKeyInfo {
-    let ossh = String(openSSHPublicKey: key)     // "ssh-ed25519 AAAA..."
+    let ossh = String(openSSHPublicKey: key) // "ssh-ed25519 AAAA..."
     let parts = ossh.split(separator: " ")
     let keyType = parts.first.map(String.init) ?? "?"
     var fp = "?"

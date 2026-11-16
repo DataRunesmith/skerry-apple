@@ -131,7 +131,7 @@ public enum CommandLibrary {
               docsURL: "https://www.freedesktop.org/software/systemd/man/latest/systemctl.html"),
         .init(category: .systemd, command: "systemctl enable --now {{service}}", summary: "Aktivera en tjänst vid uppstart och starta den nu",
               example: "systemctl enable --now docker",
-              docsURL: "https://www.freedesktop.org/software/systemd/man/latest/systemctl.html"),
+              docsURL: "https://www.freedesktop.org/software/systemd/man/latest/systemctl.html")
     ]
 
     public static func entries(in category: CommandLibraryEntry.Category) -> [CommandLibraryEntry] {

@@ -15,7 +15,6 @@ import XCTest
 /// `ssh-keygen` (OpenSSH 9.6), och det förväntade
 /// värdet är exakt vad `ssh-keygen -lf` skrev ut för samma nyckel.
 final class HostKeyFingerprintTests: XCTestCase {
-
     /// `ssh-keygen -t ed25519 -C golden@skerry`
     private static let ed25519Line =
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP0LeaRw74HwUKygzYCYT5ZroEZ0R/Zszy3kpAPzrT1B golden@skerry"
@@ -93,7 +92,6 @@ final class HostKeyFingerprintTests: XCTestCase {
 /// `EmbeddedEventLoop` gör det testbart utan nätverk: promisen löses
 /// synkront, så utfallet går att läsa direkt.
 final class TOFUHostKeyValidatorTests: XCTestCase {
-
     private let ed25519Line =
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP0LeaRw74HwUKygzYCYT5ZroEZ0R/Zszy3kpAPzrT1B golden@skerry"
     private let otherLine =
@@ -167,7 +165,7 @@ final class TOFUHostKeyValidatorTests: XCTestCase {
             host: "srv.example", port: 22, store: store, onReject: { rejections.append($0) }
         )
 
-        _ = try validate(validator, ed25519Line, on: loop)   // lär in
+        _ = try validate(validator, ed25519Line, on: loop) // lär in
         guard case .success = try validate(validator, ed25519Line, on: loop) else {
             return XCTFail("oförändrad nyckel ska accepteras")
         }
@@ -188,7 +186,7 @@ final class TOFUHostKeyValidatorTests: XCTestCase {
             host: "srv.example", port: 22, store: store, onReject: { rejections.append($0) }
         )
 
-        _ = try validate(validator, ed25519Line, on: loop)   // lär in den äkta
+        _ = try validate(validator, ed25519Line, on: loop) // lär in den äkta
 
         guard case .failure(let error) = try validate(validator, otherLine, on: loop) else {
             return XCTFail("en ändrad värdnyckel MÅSTE avvisas — annars finns inget MITM-skydd")

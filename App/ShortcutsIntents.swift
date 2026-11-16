@@ -95,7 +95,7 @@ struct SkerryShortcuts: AppShortcutsProvider {
             intent: WakeHostIntent(),
             phrases: [
                 "Väck \(\.$host) i \(.applicationName)",
-                "Wake on lan \(\.$host) i \(.applicationName)",
+                "Wake on lan \(\.$host) i \(.applicationName)"
             ],
             shortTitle: "Väck värd",
             systemImageName: "bolt.fill"

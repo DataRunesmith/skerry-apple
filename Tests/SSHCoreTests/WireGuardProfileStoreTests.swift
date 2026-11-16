@@ -40,7 +40,7 @@ final class WireGuardProfileStoreTests: XCTestCase {
         store.upsert(home)
         store.upsert(work)
 
-        XCTAssertEqual(store.all().map(\.name), ["Hemma", "jobbet"])  // skiftlägesokänslig sort
+        XCTAssertEqual(store.all().map(\.name), ["Hemma", "jobbet"]) // skiftlägesokänslig sort
         XCTAssertEqual(store.get(home.id)?.config.interface.privateKey, "a=")
 
         store.delete(work.id)

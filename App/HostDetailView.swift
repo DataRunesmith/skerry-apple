@@ -23,12 +23,12 @@ struct HostDetailView: View {
     /// ingår i en flikväxlare (bör inte hända i praktiken efter multi-
     /// session-omskrivningen, men låter oss ändå inte kräva en anropare
     /// för varje instansiering) — då faller "Klar" tillbaka på `dismiss()`.
-    var onClose: (() -> Void)? = nil
+    var onClose: (() -> Void)?
     /// Öppnar ÄNNU en flik till SAMMA värd (t.ex. en `tail -f`-logg vid
     /// sidan av en vanlig shell) — synlig knapp istället för en gissad
     /// dubbeltryck-gest. `nil` när vyn inte ingår i en
     /// flikväxlare (samma resonemang som `onClose`).
-    var onNewTab: (() -> Void)? = nil
+    var onNewTab: (() -> Void)?
     @State private var showTerminal = false
     @State private var reloadToken = UUID()
     // `@AppStorage`, INTE en direkt `UserDefaults.standard`-läsning — den
@@ -46,7 +46,7 @@ struct HostDetailView: View {
     var body: some View {
         NavigationStack {
             DashboardView(request: request, store: store)
-                .id(reloadToken)   // ny id => DashboardView laddar om
+                .id(reloadToken) // ny id => DashboardView laddar om
                 .navigationTitle(request.host.alias.isEmpty ? request.host.hostName : request.host.alias)
                 .navInlineTitle()
                 .safeAreaInset(edge: .bottom) {
