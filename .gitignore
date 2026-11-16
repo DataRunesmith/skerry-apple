@@ -291,3 +291,6 @@ fastlane/report.xml
 # Built documentation site
 site/
 .venv-docs/
+
+# Local Claude Code statusline script, kept outside the repository
+statusline.sh
