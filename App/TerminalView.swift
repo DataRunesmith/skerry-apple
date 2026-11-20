@@ -220,10 +220,10 @@ struct SkerryTerminal: TerminalRepresentable {
     let target: SSHTarget
     let auth: SSHAuth
     /// Se `SSHTerminalController.jump` — `nil` = direkt anslutning.
-    var jump: (target: SSHTarget, auth: SSHAuth)? = nil
-    var initialCommand: String? = nil
+    var jump: (target: SSHTarget, auth: SSHAuth)?
+    var initialCommand: String?
     /// Se `SSHTerminalController.onSessionEnded`.
-    var onSessionEnded: (() -> Void)? = nil
+    var onSessionEnded: (() -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(target: target, auth: auth, jump: jump, initialCommand: initialCommand, onSessionEnded: onSessionEnded)

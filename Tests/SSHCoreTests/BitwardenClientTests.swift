@@ -80,5 +80,11 @@ final class BitwardenClientTests: XCTestCase {
             XCTAssertEqual(error, .emptyPassword)
         }
     }
+
+    func testItemIDStartingWithDashIsRejected() {
+        XCTAssertThrowsError(try BitwardenClient.fetchPassword(itemID: "--help", session: nil)) {
+            XCTAssertEqual($0 as? BitwardenClientError, .invalidItemID)
+        }
+    }
 }
 #endif

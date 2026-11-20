@@ -9,7 +9,7 @@ public final class SnippetStore {
     private var byID: [UUID: Snippet]
 
     public static var defaultPath: String {
-        (("~/.skerry/snippets.json") as NSString).expandingTildeInPath
+        ("~/.skerry/snippets.json" as NSString).expandingTildeInPath
     }
 
     public init(path: String? = SnippetStore.defaultPath) {

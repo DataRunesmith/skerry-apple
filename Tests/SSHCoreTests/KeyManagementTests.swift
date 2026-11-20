@@ -308,6 +308,17 @@ final class DeployPublicKeyCommandWindowsTests: XCTestCase {
         XCTAssertFalse(script.contains("o\\'brien"))
     }
 
+    /// Regression: `[regex]::Escape` tillsammans med `-SimpleMatch` söker efter en
+    /// bokstavlig sträng full av backslashar och matchar aldrig, så varje
+    /// distribution lade till nyckeln igen.
+    func testIdempotencyCheckSearchesTheRawKeyLiterally() throws {
+        let cmd = deployPublicKeyCommandWindows(
+            "ssh-ed25519 AAAA+/key", path: #"C:\test\authorized_keys"#, setACL: false)
+        let script = try decodedScript(cmd)
+        XCTAssertFalse(script.contains("Escape"))
+        XCTAssertTrue(script.contains("-Pattern $key -SimpleMatch"))
+    }
+
     func testDirIsSplitOnBackslashNotForwardSlash() throws {
         // Regression: NSString.deletingLastPathComponent antar POSIX-
         // snedstreck och skulle INTE dela upp en backslash-sökväg korrekt.

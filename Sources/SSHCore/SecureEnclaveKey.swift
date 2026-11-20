@@ -36,7 +36,6 @@ import NIOSSH
 /// `NIOSSHPrivateKey.swift` rad 56, bakom `#if canImport(Darwin)`).
 /// Blockeringen gällde externa tokens, inte hårdvaran i enheten.
 public enum SecureEnclaveKey {
-
     /// Varför en Enclave-nyckel inte gick att använda.
     public enum Failure: Error, Equatable {
         /// Enheten saknar Secure Enclave (simulator, äldre Mac, Linux).
@@ -65,7 +64,6 @@ public enum SecureEnclaveKey {
 #if canImport(Darwin)
 
 extension SecureEnclaveKey {
-
     /// Skapar en ny nyckel i kretsen.
     ///
     /// Det som kommer tillbaka är representationen att SPARA — inte

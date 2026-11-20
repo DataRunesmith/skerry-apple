@@ -116,12 +116,12 @@ public struct OpenSSHCertificate: Sendable, Equatable {
         var extensionsReader = CertByteReader(Data(try reader.readString()))
         while !extensionsReader.isAtEnd {
             extensionNames.append(String(decoding: try extensionsReader.readString(), as: UTF8.self))
-            _ = try extensionsReader.readString()  // datafält, alltid tomt enligt specen — läses ändå av för att hålla positionen synkad
+            _ = try extensionsReader.readString() // datafält, alltid tomt enligt specen — läses ändå av för att hålla positionen synkad
         }
 
-        _ = try reader.readString()  // reserved
+        _ = try reader.readString() // reserved
         let signatureKeyBlob = Data(try reader.readString())
-        let signedDataLength = reader.offset  // precis EFTER signatureKeyBlob, precis FÖRE signatureBlob
+        let signedDataLength = reader.offset // precis EFTER signatureKeyBlob, precis FÖRE signatureBlob
         let signatureBlob = Data(try reader.readString())
         let signedData = blob.prefix(signedDataLength)
 

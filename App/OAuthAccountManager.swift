@@ -43,7 +43,7 @@ final class OAuthAccountManager: NSObject, ASWebAuthenticationPresentationContex
             URLQueryItem(name: "scope", value: provider.scope),
             URLQueryItem(name: "code_challenge", value: challenge),
             URLQueryItem(name: "code_challenge_method", value: "S256"),
-            URLQueryItem(name: "state", value: state),
+            URLQueryItem(name: "state", value: state)
         ]
         guard let authURL = components.url else { throw OAuthError.invalidCallback }
 
@@ -85,7 +85,7 @@ final class OAuthAccountManager: NSObject, ASWebAuthenticationPresentationContex
             "code": code,
             "redirect_uri": provider.redirectURI.absoluteString,
             "client_id": provider.clientID,
-            "code_verifier": verifier,
+            "code_verifier": verifier
         ])
         let (data, response) = try await URLSession.shared.data(for: request)
         try OAuthTokenStore.checkHTTPStatus(response, data: data)

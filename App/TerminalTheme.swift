@@ -129,7 +129,7 @@ extension TerminalTheme {
         TerminalTheme(id: "material-theme", name: "Material Theme",
                       background: "#1e282d", foreground: "#c4c7d1", cursor: "#c4c7d1", selection: "#666666",
                       ansi: ["#666666", "#eb606b", "#c3e88d", "#f7eb95", "#80cbc4", "#ff2f90", "#aeddff", "#ffffff",
-                             "#ff262b", "#eb606b", "#c3e88d", "#f7eb95", "#7dc6bf", "#6c71c4", "#35434d", "#ffffff"]),
+                             "#ff262b", "#eb606b", "#c3e88d", "#f7eb95", "#7dc6bf", "#6c71c4", "#35434d", "#ffffff"])
     ].sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
 
     static let defaultTheme: TerminalTheme = all.first { $0.id == "dracula" } ?? all[0]

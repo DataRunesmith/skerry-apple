@@ -94,13 +94,13 @@
 }
 
 .skerry-btn--primary {
-  background-color: var(--skerry-accent);
+  background-color: #c44117;
   border-color: var(--skerry-accent);
   color: #fff;
 }
 
 .skerry-btn--primary:hover {
-  background-color: #d94c1e;
+  background-color: #b83b14;
   color: #fff;
 }
 

@@ -41,6 +41,9 @@ final class ExecHandler: ChannelDuplexHandler {
     func userInboundEventTriggered(context: ChannelHandlerContext, event: Any) {
         if let status = event as? SSHChannelRequestEvent.ExitStatus {
             exitStatus = Int(status.exitStatus)
+        } else if event is SSHChannelRequestEvent.ExitSignal, exitStatus == nil {
+            // Avslutad av signal (t.ex. SIGKILL/OOM): får aldrig tolkas som lyckad.
+            exitStatus = 128
         }
         context.fireUserInboundEventTriggered(event)
     }

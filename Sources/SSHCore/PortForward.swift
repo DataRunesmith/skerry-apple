@@ -190,7 +190,7 @@ extension SSHSession {
     /// `remoteForwards`, se `handleInboundForwardedChannel`), som bryggas mot
     /// en ny lokal TCP-anslutning till `targetHost:targetPort`.
     public func openRemotePortForward(
-        bindHost: String = "0.0.0.0",
+        bindHost: String = "127.0.0.1",
         bindPort: Int,
         targetHost: String,
         targetPort: Int

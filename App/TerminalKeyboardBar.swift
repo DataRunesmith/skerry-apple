@@ -42,7 +42,6 @@ import SSHCore
 /// tryckt ut Ctrl och Esc utanför skärmen, och de behövs oftast.
 @MainActor
 final class TerminalKeyboardBar: UIInputView {
-
     /// Anropas med de bytes som ska skickas till fjärrsidan.
     private let send: ([UInt8]) -> Void
     /// Anropas när användaren vill infoga ett sparat kommando.
@@ -84,7 +83,7 @@ final class TerminalKeyboardBar: UIInputView {
             stack.trailingAnchor.constraint(equalTo: scroller.contentLayoutGuide.trailingAnchor),
             stack.topAnchor.constraint(equalTo: scroller.contentLayoutGuide.topAnchor),
             stack.bottomAnchor.constraint(equalTo: scroller.contentLayoutGuide.bottomAnchor),
-            stack.heightAnchor.constraint(equalTo: scroller.frameLayoutGuide.heightAnchor),
+            stack.heightAnchor.constraint(equalTo: scroller.frameLayoutGuide.heightAnchor)
         ])
 
         rebuild()
@@ -137,7 +136,7 @@ final class TerminalKeyboardBar: UIInputView {
             ("←", TerminalKeys.Arrow.left),
             ("↓", .down),
             ("↑", .up),
-            ("→", .right),
+            ("→", .right)
         ] {
             stack.addArrangedSubview(makeButton(title) { [weak self] in self?.send(arrow.bytes) })
         }
@@ -146,7 +145,7 @@ final class TerminalKeyboardBar: UIInputView {
             ("home", TerminalKeys.Navigation.home),
             ("end", .end),
             ("pgup", .pageUp),
-            ("pgdn", .pageDown),
+            ("pgdn", .pageDown)
         ] {
             stack.addArrangedSubview(makeButton(title) { [weak self] in self?.send(key.bytes) })
         }
@@ -188,7 +187,7 @@ final class TerminalKeyboardBar: UIInputView {
     private func refreshModifierAppearance() {
         for (button, active) in [
             (controlButton, modifiers.control),
-            (altButton, modifiers.alt),
+            (altButton, modifiers.alt)
         ] {
             guard let button else { continue }
             var config = button.configuration

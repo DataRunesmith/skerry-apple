@@ -5,12 +5,11 @@ import XCTest
 /// poängen: en etta fel betyder att fel tangent når servern. Testerna
 /// jämför mot xterms dokumenterade koder, inte mot vad koden råkar göra.
 final class TerminalKeysTests: XCTestCase {
-
     func testArrowsUseNormalCursorMode() {
-        XCTAssertEqual(TerminalKeys.Arrow.up.bytes, [0x1B, 0x5B, 0x41])    // ESC [ A
-        XCTAssertEqual(TerminalKeys.Arrow.down.bytes, [0x1B, 0x5B, 0x42])  // ESC [ B
+        XCTAssertEqual(TerminalKeys.Arrow.up.bytes, [0x1B, 0x5B, 0x41]) // ESC [ A
+        XCTAssertEqual(TerminalKeys.Arrow.down.bytes, [0x1B, 0x5B, 0x42]) // ESC [ B
         XCTAssertEqual(TerminalKeys.Arrow.right.bytes, [0x1B, 0x5B, 0x43]) // ESC [ C
-        XCTAssertEqual(TerminalKeys.Arrow.left.bytes, [0x1B, 0x5B, 0x44])  // ESC [ D
+        XCTAssertEqual(TerminalKeys.Arrow.left.bytes, [0x1B, 0x5B, 0x44]) // ESC [ D
 
         // Alla fyra ska vara olika — en delad rawValue hade gett samma
         // sekvens för två riktningar.
@@ -36,12 +35,12 @@ final class TerminalKeysTests: XCTestCase {
             XCTAssertEqual(TerminalKeys.function(n), want, "F\(n) ska vara ESC [ \(code) ~")
         }
         expect(5, "15")
-        expect(6, "17")   // inte 16
+        expect(6, "17") // inte 16
         expect(7, "18")
         expect(8, "19")
         expect(9, "20")
         expect(10, "21")
-        expect(11, "23")  // inte 22
+        expect(11, "23") // inte 22
         expect(12, "24")
 
         // Den naiva formeln skulle gett 16 för F6 — kontrollera att den
@@ -130,7 +129,6 @@ final class TerminalKeysTests: XCTestCase {
 /// Klibbiga modifierare — Ctrl och Alt går inte att HÅLLA NED på en
 /// pekskärm, så de arm:as med ett tryck och förbrukas av nästa tecken.
 final class TerminalModifierTests: XCTestCase {
-
     func testPlainCharacterPassesThroughUnchanged() {
         var mods = TerminalKeys.Modifiers()
         XCTAssertEqual(TerminalKeys.resolve(character: "a", modifiers: &mods), [0x61])

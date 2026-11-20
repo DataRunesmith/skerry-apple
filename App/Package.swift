@@ -11,6 +11,6 @@ let package = Package(
         .package(
             url: "https://github.com/migueldeicaza/SwiftTerm.git",
             exact: "1.99.3"
-        ),
+        )
     ]
 )

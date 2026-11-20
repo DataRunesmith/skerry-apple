@@ -276,8 +276,8 @@ public final class SSHSession {
         }
         let validator = TOFUHostKeyValidator(
             host: target.host, port: target.port, store: knownHosts
-        ) { [weak self] info in
-            self?.signalFatal(SSHError.hostKeyRejected(info))
+        ) { [weak self] error in
+            self?.signalFatal(error)
         }
         let bootstrap = ClientBootstrap(group: group)
             .channelInitializer { [weak self] channel in
@@ -340,8 +340,8 @@ public final class SSHSession {
         }
         let validator = TOFUHostKeyValidator(
             host: target.host, port: target.port, store: knownHosts
-        ) { [weak self] info in
-            self?.signalFatal(SSHError.hostKeyRejected(info))
+        ) { [weak self] error in
+            self?.signalFatal(error)
         }
 
         let directTCPIP = SSHChannelType.DirectTCPIP(
@@ -561,11 +561,13 @@ public final class SSHSession {
 
     /// Bekvämlighet: samla hela utdatan till en sträng.
     public func run(_ command: String) async throws -> String {
-        var out = ""
+        // Samla råa bytes och avkoda en gång, så att flerbytestecken som delas
+        // över två datablock inte blir ersättningstecken.
+        var out: [UInt8] = []
         for try await chunk in execute(command) {
-            out += chunk.text
+            out += chunk.bytes
         }
-        return out
+        return String(decoding: out, as: UTF8.self)
     }
 
     public func close() async {

@@ -26,6 +26,8 @@ final class SFTPBrowserModel: ObservableObject {
         var id: String { path }
     }
 
+    /// Every failed upload is kept, so a later failure cannot hide an earlier one.
+    private var uploadErrors: [String] = []
     private let request: ConnectRequest
     /// För att slå upp en ev. jump-host, se `resolveConnectionPlan`. `nil`
     /// på anropsplatser utan delad store — bara en host UTAN jump-host
@@ -124,7 +126,7 @@ final class SFTPBrowserModel: ObservableObject {
     func navigateUp() async {
         guard canNavigateUp else { return }
         if let slash = currentPath.lastIndex(of: "/") {
-            currentPath = String(currentPath[currentPath.startIndex..<slash])
+            currentPath = slash == currentPath.startIndex ? "/" : String(currentPath[currentPath.startIndex..<slash])
         } else {
             currentPath = "."
         }
@@ -251,12 +253,13 @@ final class SFTPBrowserModel: ObservableObject {
     /// rakt av, ingen ny session öppnas. Mappar laddas upp REKURSIVT.
     func uploadDropped(_ urls: [URL]) async {
         errorMessage = nil
+        uploadErrors = []
         for url in urls {
             await uploadOne(url)
         }
-        let uploadError = errorMessage
+        let collected = uploadErrors.joined(separator: "\n")
         await refresh()
-        if let uploadError { errorMessage = uploadError }
+        if !collected.isEmpty { errorMessage = collected }
     }
 
     private func uploadOne(_ localURL: URL) async {
@@ -270,7 +273,7 @@ final class SFTPBrowserModel: ObservableObject {
             let source = try SFTPUploadSource.open(localURL)
             await upload(source, name: localURL.lastPathComponent, remotePath: joined(localURL.lastPathComponent))
         } catch {
-            errorMessage = "\(localURL.lastPathComponent): \(error.localizedDescription)"
+            uploadErrors.append("\(localURL.lastPathComponent): \(error.localizedDescription)")
         }
     }
 
@@ -285,15 +288,14 @@ final class SFTPBrowserModel: ObservableObject {
                         let child = try source.child(named: childName)
                         await upload(child, name: childName, remotePath: remotePath + "/" + childName)
                     } catch {
-                        errorMessage = "\(childName): \(error.localizedDescription)"
+                        uploadErrors.append("\(childName): \(error.localizedDescription)")
                     }
                 }
             } else {
-                let data = try source.read()
-                try await client.writeFile(remotePath, data: Array(data))
+                try await client.writeFile(remotePath, from: source)
             }
         } catch {
-            errorMessage = "\(name): \(error.localizedDescription)"
+            uploadErrors.append("\(name): \(error.localizedDescription)")
         }
     }
 

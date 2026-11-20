@@ -111,7 +111,7 @@ public final class SerialSession {
     /// och Glibcs `termios.h`-konstanter (ovanligare/plattformsspecifika
     /// hastigheter som 460800/921600 stöds medvetet inte här).
     public static let commonBaudRates: [UInt32] = [
-        300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400,
+        300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400
     ]
 
     private static func speed(for baudRate: UInt32) throws -> speed_t {

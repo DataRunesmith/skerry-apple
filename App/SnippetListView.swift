@@ -20,7 +20,7 @@ struct SnippetListView: View {
     /// Vidarebefordras till `SessionView` för jump-host-uppslagning. `nil`
     /// på anropsplatser som saknar en delad store (ingen regression, se
     /// `SessionView.store`).
-    var store: HostStore? = nil
+    var store: HostStore?
     @StateObject private var model = SnippetListModel()
     @State private var editing: Snippet?
     @State private var running: Snippet?
@@ -83,7 +83,7 @@ struct SnippetRunView: View {
     let onCancel: () -> Void
     /// Extra kontext att visa (t.ex. exempel/dokumentationslänk för ett
     /// kommandobibliotekskommando) — `nil` för vanliga sparade snippets.
-    var detail: String? = nil
+    var detail: String?
     @State private var values: [String: String] = [:]
 
     var body: some View {

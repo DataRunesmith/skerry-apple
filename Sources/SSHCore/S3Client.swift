@@ -107,7 +107,7 @@ enum AWSSigV4 {
             queryString,
             canonicalHeaders,
             signedHeaders,
-            contentHash,
+            contentHash
         ].joined(separator: "\n")
 
         let credentialScope = "\(datestamp)/\(region)/s3/aws4_request"
@@ -115,7 +115,7 @@ enum AWSSigV4 {
             "AWS4-HMAC-SHA256",
             amzDate,
             credentialScope,
-            sha256Hex(Data(canonicalRequest.utf8)),
+            sha256Hex(Data(canonicalRequest.utf8))
         ].joined(separator: "\n")
 
         let kDate = hmac(SymmetricKey(data: Data("AWS4\(credentials.secretAccessKey)".utf8)), datestamp)
@@ -158,10 +158,10 @@ public actor S3Client {
         self.session = session
     }
 
-    /// `Host`-värdet som faktiskt måste signeras — `URLSession` skickar
-    /// `Host: värd:port` för icke-standardportar (t.ex. en lokal MinIO-
-    /// instans på :9000), så den signerade headern måste matcha exakt
-    /// annars underkänns signaturen av servern.
+    // `Host`-värdet som faktiskt måste signeras — `URLSession` skickar
+    // `Host: värd:port` för icke-standardportar (t.ex. en lokal MinIO-
+    // instans på :9000), så den signerade headern måste matcha exakt
+    // annars underkänns signaturen av servern.
     // internal (inte `private`) enbart för att vara direkt testbar via
     // @testable import — inte del av den publika API-ytan.
     var host: String {

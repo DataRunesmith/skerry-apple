@@ -12,7 +12,7 @@ public enum DockerService {
     /// Docker-namn: [a-zA-Z0-9][a-zA-Z0-9_.-]*. Korta/långa id:n är hex. Vi kräver
     /// att första tecknet är alfanumeriskt (utesluter även "-flagg"-injektion) och
     /// att resten bara är säkra tecken. Allt annat avvisas.
-    static let referencePattern = try! NSRegularExpression(pattern: "^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+    static let referencePattern = try! NSRegularExpression(pattern: "^[A-Za-z0-9][A-Za-z0-9_.-]*$") // swiftlint:disable:this force_try
 
     public static func validate(_ ref: String) throws -> String {
         let range = NSRange(ref.startIndex..<ref.endIndex, in: ref)

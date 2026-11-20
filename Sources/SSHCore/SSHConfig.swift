@@ -41,7 +41,7 @@ public struct SSHConfig: Sendable {
     private let entries: [Entry]
 
     public static var defaultPath: String {
-        (("~/.ssh/config") as NSString).expandingTildeInPath
+        ("~/.ssh/config" as NSString).expandingTildeInPath
     }
 
     /// Största antal `Include`-nivåer som följs. Samma gräns som OpenSSH:s
@@ -270,7 +270,7 @@ public struct SSHConfig: Sendable {
     /// Slår upp ett alias. Nycklar före första `Host` är globala (gäller alla).
     public func resolve(_ alias: String) -> ResolvedHost {
         var found: [String: String] = [:]
-        var active = true  // global sektion tills första Host/Match
+        var active = true // global sektion tills första Host/Match
         for entry in entries {
             switch entry {
             case .host(let patterns):

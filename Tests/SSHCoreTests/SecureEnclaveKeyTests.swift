@@ -6,7 +6,6 @@ import XCTest
 /// tillgängligheten rapporteras ärligt, att felen går att skilja åt, och
 /// att auth-fallet finns — testas här och körs överallt.
 final class SecureEnclaveKeyTests: XCTestCase {
-
     /// Tillgängligheten måste FRÅGAS, inte antas. Koden kompilerar på
     /// varje plattform, men kretsen finns bara på vissa — och på Linux
     /// ska svaret vara ett tydligt nej i stället för ett fel längre fram.

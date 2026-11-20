@@ -26,7 +26,7 @@ public enum KeyGenerator {
         // anropsvägen, till skillnad från den publika fromExisting(seed:)
         // nedan som MÅSTE kunna kasta ett tydligt fel för godtyckliga,
         // användarinmatade frön.
-        return try! fromExisting(seed: privateKey.rawRepresentation, comment: comment)
+        return try! fromExisting(seed: privateKey.rawRepresentation, comment: comment) // swiftlint:disable:this force_try
     }
 
     /// Bygger ett `GeneratedKeyPair` (för `deployPublicKey`/`verifyKeyAuthWorks`)
@@ -101,6 +101,17 @@ func deployPublicKeyCommandPOSIX(_ publicKeyLine: String) -> String {
     """
 }
 
+/// PowerShell treats the typographic single quotes U+2018-U+201B as quote
+/// characters too, so each one is doubled like the ASCII quote.
+func powerShellQuoted(_ s: String) -> String {
+    var out = "'"
+    for ch in s {
+        out.append(ch)
+        if "'\u{2018}\u{2019}\u{201A}\u{201B}".contains(ch) { out.append(ch) }
+    }
+    return out + "'"
+}
+
 /// Bygger ett Windows-kommando som anropar `powershell -EncodedCommand` med
 /// hela skriptet Base64/UTF-16LE-kodat — undviker helt att behöva escapa en
 /// fri kommentarsträng genom TVÅ nästlade skallager (SSH-exec-argumentet OCH
@@ -111,13 +122,13 @@ func deployPublicKeyCommandPOSIX(_ publicKeyLine: String) -> String {
 /// vägrar annars filen helt. Standardkontots egen `.ssh`-mapp har inga såna krav.
 func deployPublicKeyCommandWindows(_ publicKeyLine: String, path: String, setACL: Bool) -> String {
     // Enkelcitat i PowerShell: `'` blir `''` (fördubblad), inte `\'` som i POSIX-skal.
-    let psQuoted = "'" + publicKeyLine.replacingOccurrences(of: "'", with: "''") + "'"
-    let psPath = "'" + path.replacingOccurrences(of: "'", with: "''") + "'"
+    let psQuoted = powerShellQuoted(publicKeyLine)
+    let psPath = powerShellQuoted(path)
     // INTE NSString.deletingLastPathComponent — den antar POSIX-snedstreck
     // som separator och skulle inte dela upp en backslash-separerad Windows-
     // sökväg (eller en med `$env:...`-prefix) korrekt alls.
     let dir = path.split(separator: "\\", omittingEmptySubsequences: false).dropLast().joined(separator: "\\")
-    let psDir = "'" + dir.replacingOccurrences(of: "'", with: "''") + "'"
+    let psDir = powerShellQuoted(dir)
 
     var script = """
     $ErrorActionPreference = 'Stop'
@@ -125,7 +136,7 @@ func deployPublicKeyCommandWindows(_ publicKeyLine: String, path: String, setACL
     $path = \(psPath)
     $dir = \(psDir)
     if (!(Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
-    if (!(Test-Path $path) -or -not (Select-String -Path $path -Pattern ([regex]::Escape($key)) -SimpleMatch -Quiet)) {
+    if (!(Test-Path $path) -or -not (Select-String -Path $path -Pattern $key -SimpleMatch -Quiet)) {
         Add-Content -Path $path -Value $key
     }
     """

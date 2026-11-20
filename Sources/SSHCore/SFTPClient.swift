@@ -243,7 +243,7 @@ public actor SFTPClient {
         }
         let id: UInt32
         switch response {
-        case .version: return  // ovanför, oåtkomlig gren
+        case .version: return // ovanför, oåtkomlig gren
         case .status(let rid, _, _), .handle(let rid, _), .data(let rid, _),
              .name(let rid, _), .attrs(let rid, _):
             id = rid
@@ -268,8 +268,16 @@ public actor SFTPClient {
     private func request(_ packet: ByteBuffer, id: UInt32) async throws -> SFTPResponse {
         try await withCheckedThrowingContinuation { cont in
             pending[id] = cont
-            channel.writeAndFlush(packet, promise: nil)
+            // Misslyckas skrivningen (kanalen stängd) ska väntande anrop avslutas
+            // i stället för att hänga för alltid.
+            channel.writeAndFlush(packet).whenFailure { [weak self] error in
+                Task { await self?.failPending(id: id, error: error) }
+            }
         }
+    }
+
+    private func failPending(id: UInt32, error: Error) {
+        pending.removeValue(forKey: id)?.resume(throwing: error)
     }
 
     private func performHandshake() async throws {
@@ -462,7 +470,7 @@ public actor SFTPClient {
             while let chunk = try await read(handle, offset: offset, length: chunkSize) {
                 result.append(contentsOf: chunk)
                 offset += UInt64(chunk.count)
-                if chunk.isEmpty { break }  // undviker oändlig loop mot en server som svarar tom DATA i stället för EOF
+                if chunk.isEmpty { break } // undviker oändlig loop mot en server som svarar tom DATA i stället för EOF
             }
         } catch {
             try? await closeFile(handle)
@@ -496,6 +504,29 @@ public actor SFTPClient {
         }
         try await closeFile(handle)
     }
+
+    #if canImport(Darwin) || canImport(Glibc)
+    /// Streams a local file to the server in chunks instead of loading it whole.
+    public func writeFile(_ path: String, from source: SFTPUploadSource, chunkSize: Int = 32768) async throws {
+        guard chunkSize > 0 else {
+            throw SFTPClientError.protocolViolation("chunkSize måste vara större än 0")
+        }
+        let handle = try await openFile(path, flags: [.write, .create, .truncate])
+        var offset: UInt64 = 0
+        do {
+            while true {
+                let chunk = try source.readChunk(maxLength: chunkSize)
+                if chunk.isEmpty { break }
+                try await write(handle, offset: offset, data: Array(chunk))
+                offset += UInt64(chunk.count)
+            }
+        } catch {
+            try? await closeFile(handle)
+            throw error
+        }
+        try await closeFile(handle)
+    }
+    #endif
 
     private static func expectOK(_ response: SFTPResponse) throws {
         guard case .status(_, let code, let message) = response else {

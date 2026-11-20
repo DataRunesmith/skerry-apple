@@ -41,14 +41,18 @@ struct GoogleDriveSyncProvider: SyncProvider {
         let files: [Entry]
     }
 
+    private func driveQueryEscaped(_ s: String) -> String {
+        s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'")
+    }
+
     private func findFileID() throws -> String? {
         guard var components = URLComponents(string: "https://www.googleapis.com/drive/v3/files") else {
             throw OAuthError.invalidCallback
         }
         components.queryItems = [
             URLQueryItem(name: "spaces", value: "appDataFolder"),
-            URLQueryItem(name: "q", value: "name = '\(filename)'"),
-            URLQueryItem(name: "fields", value: "files(id)"),
+            URLQueryItem(name: "q", value: "name = '\(driveQueryEscaped(filename))'"),
+            URLQueryItem(name: "fields", value: "files(id)")
         ]
         var request = URLRequest(url: components.url!)
         request.setValue("Bearer \(try token())", forHTTPHeaderField: "Authorization")
@@ -81,13 +85,13 @@ struct GoogleDriveSyncProvider: SyncProvider {
     private func multipartBody(boundary: String, payload: Data) throws -> Data {
         let metadata = try JSONSerialization.data(withJSONObject: ["name": filename, "parents": ["appDataFolder"]])
         var body = Data()
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Type: application/json; charset=UTF-8\r\n\r\n".data(using: .utf8)!)
+        body.append(Data("--\(boundary)\r\n".utf8))
+        body.append(Data("Content-Type: application/json; charset=UTF-8\r\n\r\n".utf8))
         body.append(metadata)
-        body.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Type: application/octet-stream\r\n\r\n".data(using: .utf8)!)
+        body.append(Data("\r\n--\(boundary)\r\n".utf8))
+        body.append(Data("Content-Type: application/octet-stream\r\n\r\n".utf8))
         body.append(payload)
-        body.append("\r\n--\(boundary)--".data(using: .utf8)!)
+        body.append(Data("\r\n--\(boundary)--".utf8))
         return body
     }
 

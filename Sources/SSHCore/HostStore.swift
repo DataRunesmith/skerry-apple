@@ -1,11 +1,11 @@
 import Foundation
 
-/// Persistent host-databas (JSON på disk). Trådsäker. Taggbaserad filtrering.
-/// Standardplats: `~/.skerry/hosts.json`. `path: nil` = endast i minne (test).
-///
-/// Persisterar ett `SyncState` (värdar + gravstenar) så databasen kan slås ihop
-/// mellan enheter via `SyncEngine`. JSON medvetet (inte SQLite): diff-bart,
-/// synkbart, inga systemberoenden — funkar identiskt på iOS/macOS/Linux/Windows.
+// Persistent host-databas (JSON på disk). Trådsäker. Taggbaserad filtrering.
+// Standardplats: `~/.skerry/hosts.json`. `path: nil` = endast i minne (test).
+//
+// Persisterar ett `SyncState` (värdar + gravstenar) så databasen kan slås ihop
+// mellan enheter via `SyncEngine`. JSON medvetet (inte SQLite): diff-bart,
+// synkbart, inga systemberoenden — funkar identiskt på iOS/macOS/Linux/Windows.
 // All mutable state and persistence are protected by `lock`.
 public final class HostStore: @unchecked Sendable {
     private let path: String?
@@ -14,7 +14,7 @@ public final class HostStore: @unchecked Sendable {
     private var tombstones: [UUID: Date]
 
     public static var defaultPath: String {
-        (("~/.skerry/hosts.json") as NSString).expandingTildeInPath
+        ("~/.skerry/hosts.json" as NSString).expandingTildeInPath
     }
 
     public init(path: String? = HostStore.defaultPath) {
@@ -34,6 +34,11 @@ public final class HostStore: @unchecked Sendable {
         }
         if let hosts = try? JSONDecoder().decode([Host].self, from: data) {
             return SyncState(hosts: hosts)
+        }
+        // Oläsbar fil: spara en kopia så att nästa persist() inte raderar den.
+        if !data.isEmpty {
+            let backup = path + ".corrupt-\(Int(Date().timeIntervalSince1970))"
+            try? PrivateFile.write(data, to: backup)
         }
         return SyncState()
     }
@@ -63,7 +68,7 @@ public final class HostStore: @unchecked Sendable {
     public func delete(_ id: UUID) {
         lock.withLock {
             byID[id] = nil
-            tombstones[id] = Date()      // gravsten så raderingen syncar
+            tombstones[id] = Date() // gravsten så raderingen syncar
             persist()
         }
     }
@@ -186,7 +191,7 @@ public final class HostStore: @unchecked Sendable {
         let state = SyncState(hosts: Array(byID.values).sorted { $0.alias < $1.alias },
                               tombstones: tombstones)
         if let data = try? encoder.encode(state) {
-            try? data.write(to: URL(fileURLWithPath: path), options: .atomic)
+            try? PrivateFile.write(data, to: path)
         }
     }
 }

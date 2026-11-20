@@ -59,7 +59,7 @@ enum OAuthTokenStore {
         request.httpBody = formBody([
             "grant_type": "refresh_token",
             "refresh_token": refreshToken,
-            "client_id": provider.clientID,
+            "client_id": provider.clientID
         ])
         let (data, response) = try synchronousRequest(request)
         try checkHTTPStatus(response, data: data)
@@ -67,9 +67,12 @@ enum OAuthTokenStore {
         return StoredOAuthToken(response: decoded, previousRefreshToken: refreshToken)
     }
 
+    /// RFC 3986 "unreserved": `+`, `&`, `=` och `;` måste kodas i en form-body.
+    private static let formAllowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+
     static func formBody(_ fields: [String: String]) -> Data {
         fields.map { key, value in
-            "\(key)=\(value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+            "\(key)=\(value.addingPercentEncoding(withAllowedCharacters: formAllowed) ?? "")"
         }.joined(separator: "&").data(using: .utf8)!
     }
 

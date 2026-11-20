@@ -39,6 +39,25 @@ final class SFTPClientTests: XCTestCase {
         await session.close()
     }
 
+    func testStreamingUploadFromLocalFileRoundTrips() async throws {
+        let server = try LoopbackServer.start(password: "hunter2")
+        defer { server.shutdown() }
+        let session = try await connectedSession(server)
+        let sftp = try await SFTPClient.open(on: session)
+
+        let content = (0..<100_000).map { UInt8($0 % 251) }
+        let local = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try Data(content).write(to: local)
+        defer { try? FileManager.default.removeItem(at: local) }
+        let source = try SFTPUploadSource.open(local)
+        try await sftp.writeFile("streamed.bin", from: source, chunkSize: 4096)
+        let readBack = try await sftp.readFile("streamed.bin", chunkSize: 32768)
+        XCTAssertEqual(readBack, content)
+
+        await sftp.close()
+        await session.close()
+    }
+
     func testWriteFileLargerThanOneChunk() async throws {
         let server = try LoopbackServer.start(password: "hunter2")
         defer { server.shutdown() }

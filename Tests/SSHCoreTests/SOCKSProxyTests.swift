@@ -30,7 +30,7 @@ final class SOCKSHandshakeHandlerTests: XCTestCase {
     func testGreetingRepliesNoAuthSelected() throws {
         let (channel, _, _, _) = makeChannel()
         var greeting = channel.allocator.buffer(capacity: 4)
-        greeting.writeBytes([0x05, 0x01, 0x00])  // VER=5, NMETHODS=1, METHODS=[no-auth]
+        greeting.writeBytes([0x05, 0x01, 0x00]) // VER=5, NMETHODS=1, METHODS=[no-auth]
         try channel.writeInbound(greeting)
 
         let reply: ByteBuffer? = try channel.readOutbound()
@@ -40,13 +40,13 @@ final class SOCKSHandshakeHandlerTests: XCTestCase {
     func testFullConnectRequestIPv4() throws {
         let (channel, requests, _, _) = makeChannel()
         var input = channel.allocator.buffer(capacity: 32)
-        input.writeBytes([0x05, 0x01, 0x00])  // greeting
-        input.writeBytes([0x05, 0x01, 0x00, 0x01])  // VER CMD=CONNECT RSV ATYP=IPv4
-        input.writeBytes([93, 184, 216, 34])  // 93.184.216.34
+        input.writeBytes([0x05, 0x01, 0x00]) // greeting
+        input.writeBytes([0x05, 0x01, 0x00, 0x01]) // VER CMD=CONNECT RSV ATYP=IPv4
+        input.writeBytes([93, 184, 216, 34]) // 93.184.216.34
         input.writeInteger(UInt16(443))
         try channel.writeInbound(input)
 
-        _ = try channel.readOutbound(as: ByteBuffer.self)  // greeting-svaret, redan täckt ovan
+        _ = try channel.readOutbound(as: ByteBuffer.self) // greeting-svaret, redan täckt ovan
         let all = requests.withLockedValue { $0 }
         XCTAssertEqual(all, [SOCKSConnectRequest(host: "93.184.216.34", port: 443)])
     }
@@ -71,7 +71,7 @@ final class SOCKSHandshakeHandlerTests: XCTestCase {
         var input = channel.allocator.buffer(capacity: 32)
         input.writeBytes([0x05, 0x01, 0x00])
         input.writeBytes([0x05, 0x01, 0x00, 0x04])
-        input.writeBytes([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01])  // 2001:db8::1
+        input.writeBytes([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01]) // 2001:db8::1
         input.writeInteger(UInt16(22))
         try channel.writeInbound(input)
 
@@ -120,7 +120,7 @@ final class SOCKSHandshakeHandlerTests: XCTestCase {
     func testUnsupportedVersionErrors() throws {
         let (channel, _, errors, _) = makeChannel()
         var input = channel.allocator.buffer(capacity: 4)
-        input.writeBytes([0x04, 0x01, 0x00])  // SOCKS4, inte 5
+        input.writeBytes([0x04, 0x01, 0x00]) // SOCKS4, inte 5
         try channel.writeInbound(input)
 
         let all = errors.withLockedValue { $0 }
@@ -133,7 +133,7 @@ final class SOCKSHandshakeHandlerTests: XCTestCase {
     func testNoAcceptableAuthMethodErrors() throws {
         let (channel, _, errors, _) = makeChannel()
         var input = channel.allocator.buffer(capacity: 4)
-        input.writeBytes([0x05, 0x01, 0x02])  // bara username/password (0x02), inget no-auth
+        input.writeBytes([0x05, 0x01, 0x02]) // bara username/password (0x02), inget no-auth
         try channel.writeInbound(input)
 
         let all = errors.withLockedValue { $0 }
@@ -146,7 +146,7 @@ final class SOCKSHandshakeHandlerTests: XCTestCase {
         let (channel, _, errors, _) = makeChannel()
         var input = channel.allocator.buffer(capacity: 8)
         input.writeBytes([0x05, 0x01, 0x00])
-        input.writeBytes([0x05, 0x02, 0x00, 0x01])  // CMD=0x02 (BIND), inte CONNECT
+        input.writeBytes([0x05, 0x02, 0x00, 0x01]) // CMD=0x02 (BIND), inte CONNECT
         input.writeBytes([0, 0, 0, 0])
         input.writeInteger(UInt16(0))
         try channel.writeInbound(input)
@@ -282,7 +282,7 @@ final class DynamicPortForwardTests: XCTestCase {
         var greeting = client.allocator.buffer(capacity: 3)
         greeting.writeBytes([0x05, 0x01, 0x00])
         try await client.writeAndFlush(greeting).get()
-        try await waitForBytes(collector, count: 2)  // VER METHOD
+        try await waitForBytes(collector, count: 2) // VER METHOD
 
         var request = client.allocator.buffer(capacity: 32)
         request.writeBytes([0x05, 0x01, 0x00, 0x03])
@@ -290,7 +290,7 @@ final class DynamicPortForwardTests: XCTestCase {
         request.writeString(targetHost)
         request.writeInteger(UInt16(targetPort))
         try await client.writeAndFlush(request).get()
-        try await waitForBytes(collector, count: 2 + 10)  // greeting-svar + CONNECT-svar (10 byte)
+        try await waitForBytes(collector, count: 2 + 10) // greeting-svar + CONNECT-svar (10 byte)
 
         var payload = client.allocator.buffer(capacity: 8)
         payload.writeString("hallå")

@@ -8,7 +8,7 @@ import UniformTypeIdentifiers
 struct ImportConfigView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
-    let onImport: (String) async -> Int   // returnerar antal importerade
+    let onImport: (String) async -> Int // returnerar antal importerade
 
     @State private var result: String?
     @State private var showFileImporter = false
